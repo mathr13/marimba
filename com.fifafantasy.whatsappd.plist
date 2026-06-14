@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd user agent for the WhatsApp daemon.
+
+  Install:
+    cp com.fifafantasy.whatsappd.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.fifafantasy.whatsappd.plist
+
+  The QR code (first login / re-auth) and all logs go here — tail it:
+    tail -f ~/Library/Logs/fifafantasy-whatsappd.log
+
+  NOTE: launchd does not read your shell profile, so ProgramArguments uses an
+  absolute path to node. Update it if `which node` differs on your machine.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.fifafantasy.whatsappd</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/node</string>
+        <string>/Users/shishirmathur/Downloads/fifa_fantasy/whatsapp_sender/daemon.js</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/shishirmathur/Downloads/fifa_fantasy/whatsapp_sender</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Log MUST live outside ~/Downloads, ~/Documents, ~/Desktop: those are
+         TCC-protected and launchd (a separate responsible process) can't create
+         a file there, which makes the job fail instantly with EX_CONFIG (78).
+         ~/Library/Logs is the correct, non-protected, persistent location. -->
+    <key>StandardOutPath</key>
+    <string>/Users/shishirmathur/Library/Logs/fifafantasy-whatsappd.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/shishirmathur/Library/Logs/fifafantasy-whatsappd.log</string>
+</dict>
+</plist>

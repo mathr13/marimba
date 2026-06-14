@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Node
+whatsapp_sender/node_modules/
+whatsapp_sender/package-lock.json
+
+# WhatsApp session & cache (re-created on first run / QR scan)
+whatsapp_sender/.wwebjs_auth/
+.wwebjs_cache/
+
+# Logs
+whatsapp_sender/daemon.log
+*.log
+
+# Legacy PyWhatKit artefact
+PyWhatKit_DB.txt

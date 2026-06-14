@@ -1,0 +1,200 @@
+from dataclasses import dataclass, field
+from collections import defaultdict
+from datetime import datetime
+
+import config
+from games_client import normalize_name, is_real_participant, is_finished, parse_goals
+
+
+def _parse_local_date(game: dict) -> datetime:
+    try:
+        return datetime.strptime(game.get("local_date", ""), "%m/%d/%Y %H:%M")
+    except ValueError:
+        return datetime.min
+
+
+@dataclass
+class TeamStats:
+    match_pts: float = 0.0
+    goal_pts: float = 0.0
+    qualify_pts: float = 0.0
+    knockout_pts: float = 0.0
+    qualified: bool = False  # reached R32
+
+
+# Maps game type → (stage label used in dark-horse, knockout bonus)
+_STAGE_BONUS: dict[str, float] = {
+    "qf": config.QF_BONUS,
+    "sf": config.SF_BONUS,
+    "final": config.FINAL_BONUS,
+}
+
+_DH_STAGE_BONUS: dict[str, float] = {
+    "r32": config.DARK_HORSE_BONUS["r16"],
+    "r16": config.DARK_HORSE_BONUS["r16"],
+    "qf": config.DARK_HORSE_BONUS["qf"],
+    "sf": config.DARK_HORSE_BONUS["sf"],
+}
+
+
+def _tier(canonical_name: str) -> int:
+    return config.TEAM_TIERS.get(canonical_name, 1)
+
+
+def build_leaderboard(games: list[dict]) -> tuple[list[dict], list[str], "dict | None"]:
+    stats: dict[str, TeamStats] = defaultdict(TeamStats)
+    warnings: list[str] = []
+
+    finished_games = [g for g in games if is_finished(g)]
+    last_match = max(finished_games, key=_parse_local_date) if finished_games else None
+
+    # --- Collect all canonical API team names seen in games (for warning detection)
+    api_teams: set[str] = set()
+    for g in games:
+        for side in ("home", "away"):
+            tid = g.get(f"{side}_team_id", "0")
+            name = g.get(f"{side}_team_name_en", "")
+            if is_real_participant(tid, name):
+                api_teams.add(normalize_name(name))
+
+    # --- Process each finished game
+    for g in games:
+        if not is_finished(g):
+            continue
+
+        gtype = g.get("type", "")
+        home_id = g.get("home_team_id", "0")
+        away_id = g.get("away_team_id", "0")
+        home_raw = g.get("home_team_name_en", "")
+        away_raw = g.get("away_team_name_en", "")
+
+        home_real = is_real_participant(home_id, home_raw)
+        away_real = is_real_participant(away_id, away_raw)
+
+        if not home_real or not away_real:
+            continue
+
+        home = normalize_name(home_raw)
+        away = normalize_name(away_raw)
+
+        home_goals = parse_goals(g.get("home_scorers"), g.get("home_score"))
+        away_goals = parse_goals(g.get("away_scorers"), g.get("away_score"))
+
+        home_tier = _tier(home)
+        away_tier = _tier(away)
+
+        # Match points
+        if home_goals > away_goals:
+            stats[home].match_pts += config.WIN_PTS
+        elif away_goals > home_goals:
+            stats[away].match_pts += config.WIN_PTS
+        else:
+            stats[home].match_pts += config.DRAW_PTS
+            stats[away].match_pts += config.DRAW_PTS
+
+        # Goal points (shooter-safe count × tier multiplier)
+        stats[home].goal_pts += home_goals * config.GOAL_MULTIPLIER[home_tier]
+        stats[away].goal_pts += away_goals * config.GOAL_MULTIPLIER[away_tier]
+
+        # Qualification bonus (R32 appearance = cleared group stage)
+        if gtype == "r32":
+            for name, tier in ((home, home_tier), (away, away_tier)):
+                if not stats[name].qualified:
+                    stats[name].qualified = True
+                    stats[name].qualify_pts += config.QUALIFY_BONUS[tier]
+
+        # Knockout progression bonuses
+        if gtype in _STAGE_BONUS:
+            bonus = _STAGE_BONUS[gtype]
+            stats[home].knockout_pts += bonus
+            stats[away].knockout_pts += bonus
+
+            # Champion / Runner-up (only for final)
+            if gtype == "final":
+                if home_goals > away_goals:
+                    stats[home].knockout_pts += config.CHAMPION_BONUS
+                    stats[away].knockout_pts += config.RUNNER_UP_BONUS
+                elif away_goals > home_goals:
+                    stats[away].knockout_pts += config.CHAMPION_BONUS
+                    stats[home].knockout_pts += config.RUNNER_UP_BONUS
+                # Tied on goals (penalty final) → no champion bonus assigned (documented limitation)
+
+    # --- Build per-contender totals
+    # First, warn on unmatched roster teams
+    all_roster_canonical: dict[str, str] = {}  # canonical → contender
+    for contender, teams in config.CONTENDERS.items():
+        for raw in teams:
+            canon = normalize_name(raw)
+            all_roster_canonical[canon] = contender
+
+    for canon in all_roster_canonical:
+        if canon not in config.TEAM_TIERS:
+            warnings.append(f"No tier defined for '{canon}' — defaulting to Tier 1")
+
+    # --- Awards: highest award per team → credited to team owner
+    team_award_pts: dict[str, float] = defaultdict(float)
+    for award_key, team_raw in config.AWARDS.items():
+        canon = normalize_name(team_raw)
+        pts = config.AWARD_PTS.get(award_key, 0.0)
+        team_award_pts[canon] = max(team_award_pts[canon], pts)
+
+    # --- Dark Horse
+    contender_dh_pts: dict[str, float] = defaultdict(float)
+    for contender, dh_team_raw in config.DARK_HORSE.items():
+        canon = normalize_name(dh_team_raw)
+        tier = _tier(canon)
+        if tier not in (3, 4):
+            warnings.append(f"Dark Horse '{dh_team_raw}' for {contender} is not Tier 3/4")
+        # Find best stage reached
+        best = 0.0
+        for stage, bonus in sorted(_DH_STAGE_BONUS.items(), key=lambda x: x[1], reverse=True):
+            # Check if team appeared in this stage
+            # We infer from stats: qualified covers r32/r16; knockout covers qf/sf
+            if stage in ("r32", "r16") and stats[canon].qualified:
+                best = max(best, config.DARK_HORSE_BONUS["r16"])
+            elif stage == "qf" and stats[canon].knockout_pts >= config.QF_BONUS:
+                best = max(best, config.DARK_HORSE_BONUS["qf"])
+            elif stage == "sf" and stats[canon].knockout_pts >= config.QF_BONUS + config.SF_BONUS:
+                best = max(best, config.DARK_HORSE_BONUS["sf"])
+        contender_dh_pts[contender] = best
+
+    # --- Aggregate per contender
+    leaderboard_rows: list[dict] = []
+    for contender, teams in config.CONTENDERS.items():
+        match_total = goal_total = qualify_total = knockout_total = award_total = 0.0
+
+        for raw in teams:
+            canon = normalize_name(raw)
+            s = stats[canon]
+            match_total += s.match_pts
+            goal_total += s.goal_pts
+            qualify_total += s.qualify_pts
+            knockout_total += s.knockout_pts
+            award_total += team_award_pts.get(canon, 0.0)
+
+        dh_total = contender_dh_pts.get(contender, 0.0)
+        grand_total = match_total + goal_total + qualify_total + knockout_total + award_total + dh_total
+
+        leaderboard_rows.append({
+            "user": contender,
+            "points": round(grand_total, 2),
+            "breakdown": {
+                "match": round(match_total, 2),
+                "goals": round(goal_total, 2),
+                "qualification": round(qualify_total, 2),
+                "knockout": round(knockout_total, 2),
+                "awards": round(award_total, 2),
+                "dark_horse": round(dh_total, 2),
+            },
+        })
+
+    leaderboard_rows.sort(key=lambda r: r["points"], reverse=True)
+
+    # Assign ranks (ties share the same rank)
+    rank = 1
+    for i, row in enumerate(leaderboard_rows):
+        if i > 0 and row["points"] < leaderboard_rows[i - 1]["points"]:
+            rank = i + 1
+        row["rank"] = rank
+
+    return leaderboard_rows, warnings, last_match

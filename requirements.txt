@@ -1,0 +1,6 @@
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+httpx>=0.27.0
+# WhatsApp sending is handled by whatsapp_sender/send_group.js (Node.js).
+# One-time setup: cd whatsapp_sender && npm install
+# No Python WhatsApp dependencies needed.
