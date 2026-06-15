@@ -7,11 +7,12 @@ than a flaky browser cold-start. Start the daemon via launchd (see RUNNING.md) o
 manually: `node whatsapp_sender/daemon.js`.
 
 Usage:
-    python3 publish.py                # fetch leaderboard and send to group
-    python3 publish.py --dry-run      # print the message without sending
-    python3 publish.py --test         # send a timestamped "test" to verify the connection
-    python3 publish.py --daemon-status# check whether the daemon session is ready
-    python3 publish.py --find-groups  # list all groups and their JIDs (for config setup)
+    python3 publish.py                       # fetch leaderboard and send to group
+    python3 publish.py --dry-run             # print the message without sending
+    python3 publish.py --test                # send a timestamped "test" to verify the connection
+    python3 publish.py --daemon-status       # check whether the daemon session is ready
+    python3 publish.py --find-groups         # list all groups and their JIDs (for config setup)
+    python3 publish.py --user <name> [--dry-run] # show per-team breakdown for a specific user
 """
 import sys
 import time
@@ -23,7 +24,7 @@ import httpx
 
 import config
 from games_client import fetch_games, parse_goals
-from scoring import build_leaderboard
+from scoring import build_leaderboard, build_user_report
 
 _FIND_GROUPS = pathlib.Path(__file__).parent / "whatsapp_sender" / "find_groups.js"
 
@@ -56,6 +57,44 @@ def format_leaderboard(rows: list[dict], warnings: list[str], last_match: "dict 
     if warnings:
         lines.append("")
         lines.append("⚠️ " + "; ".join(warnings))
+    return "\n".join(lines)
+
+
+def format_user_stats(report: dict) -> str:
+    lines = [f"📊 *{report['user']} — Team Breakdown*", ""]
+    tier_emoji = {"T1": "🔴", "T2": "🟡", "T3": "🟢", "T4": "🔵"}
+
+    for team in report["teams"]:
+        name = team["name"]
+        tier = f"T{team['tier']}"
+        emoji = tier_emoji.get(tier, "⭐")
+        is_dh = team["is_dark_horse"]
+        total = team["total"]
+        matches = team["matches"]
+        dh_marker = " ⭐ dark horse" if is_dh else ""
+
+        match_str = f"{matches} {'match' if matches == 1 else 'matches'}"
+        lines.append(f"{emoji} *{name}* ({tier}){dh_marker} — {total:g} pts ({match_str})")
+
+        subcats = []
+        if team["match_pts"] > 0:
+            subcats.append(f"Match: {team['match_pts']:g}")
+        if team["goal_pts"] > 0:
+            subcats.append(f"Goals: {team['goal_pts']:g}")
+        if team["qualify_pts"] > 0:
+            subcats.append(f"Qual: {team['qualify_pts']:g}")
+        if team["knockout_pts"] > 0:
+            subcats.append(f"KO: {team['knockout_pts']:g}")
+        if team["award_pts"] > 0:
+            subcats.append(f"Awards: {team['award_pts']:g}")
+        if team["dh_pts"] > 0:
+            subcats.append(f"DH: {team['dh_pts']:g}")
+
+        if subcats:
+            lines.append(f"  {' | '.join(subcats)}")
+
+    lines.append("")
+    lines.append(f"*Total: {report['grand_total']:g} pts across {len(report['teams'])} teams*")
     return "\n".join(lines)
 
 
@@ -128,8 +167,26 @@ def main() -> None:
         _send(f"test - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         return
 
-    rows, warnings, last_match = build_leaderboard(fetch_games())
-    message = format_leaderboard(rows, warnings, last_match)
+    games = fetch_games()
+
+    # Check for --user flag
+    user_name = None
+    if "--user" in args:
+        idx = args.index("--user")
+        if idx + 1 < len(args):
+            user_name = args[idx + 1]
+
+    if user_name:
+        try:
+            report = build_user_report(games, user_name)
+            message = format_user_stats(report)
+        except ValueError as e:
+            print(f"❌ {e}")
+            sys.exit(1)
+    else:
+        rows, warnings, last_match = build_leaderboard(games)
+        message = format_leaderboard(rows, warnings, last_match)
+
     print(message)
     print()
 

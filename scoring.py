@@ -42,7 +42,10 @@ def _tier(canonical_name: str) -> int:
     return config.TEAM_TIERS.get(canonical_name, 1)
 
 
-def build_leaderboard(games: list[dict]) -> tuple[list[dict], list[str], "dict | None"]:
+def _build_stats(
+    games: list[dict],
+) -> tuple[dict, dict, dict, list[str], "dict | None"]:
+    """Compute per-team stats, award pts, dark-horse pts, warnings, and last match."""
     stats: dict[str, TeamStats] = defaultdict(TeamStats)
     warnings: list[str] = []
 
@@ -123,8 +126,7 @@ def build_leaderboard(games: list[dict]) -> tuple[list[dict], list[str], "dict |
                     stats[home].knockout_pts += config.RUNNER_UP_BONUS
                 # Tied on goals (penalty final) → no champion bonus assigned (documented limitation)
 
-    # --- Build per-contender totals
-    # First, warn on unmatched roster teams
+    # --- Warn on unmatched roster teams
     all_roster_canonical: dict[str, str] = {}  # canonical → contender
     for contender, teams in config.CONTENDERS.items():
         for raw in teams:
@@ -149,11 +151,9 @@ def build_leaderboard(games: list[dict]) -> tuple[list[dict], list[str], "dict |
         tier = _tier(canon)
         if tier not in (3, 4):
             warnings.append(f"Dark Horse '{dh_team_raw}' for {contender} is not Tier 3/4")
-        # Find best stage reached
         best = 0.0
         for stage, bonus in sorted(_DH_STAGE_BONUS.items(), key=lambda x: x[1], reverse=True):
-            # Check if team appeared in this stage
-            # We infer from stats: qualified covers r32/r16; knockout covers qf/sf
+            # We infer stage from stats: qualified covers r32/r16; knockout covers qf/sf
             if stage in ("r32", "r16") and stats[canon].qualified:
                 best = max(best, config.DARK_HORSE_BONUS["r16"])
             elif stage == "qf" and stats[canon].knockout_pts >= config.QF_BONUS:
@@ -162,7 +162,12 @@ def build_leaderboard(games: list[dict]) -> tuple[list[dict], list[str], "dict |
                 best = max(best, config.DARK_HORSE_BONUS["sf"])
         contender_dh_pts[contender] = best
 
-    # --- Aggregate per contender
+    return stats, team_award_pts, contender_dh_pts, warnings, last_match
+
+
+def build_leaderboard(games: list[dict]) -> tuple[list[dict], list[str], "dict | None"]:
+    stats, team_award_pts, contender_dh_pts, warnings, last_match = _build_stats(games)
+
     leaderboard_rows: list[dict] = []
     for contender, teams in config.CONTENDERS.items():
         match_total = goal_total = qualify_total = knockout_total = award_total = 0.0
@@ -205,3 +210,52 @@ def build_leaderboard(games: list[dict]) -> tuple[list[dict], list[str], "dict |
         row["rank"] = rank
 
     return leaderboard_rows, warnings, last_match
+
+
+def build_user_report(games: list[dict], user_name: str) -> dict:
+    """Returns per-team stats breakdown for a single contender."""
+    matched_contender = None
+    for name in config.CONTENDERS:
+        if name.lower() == user_name.lower():
+            matched_contender = name
+            break
+    if matched_contender is None:
+        available = ", ".join(sorted(config.CONTENDERS.keys()))
+        raise ValueError(f"User '{user_name}' not found. Available: {available}")
+
+    stats, team_award_pts, contender_dh_pts, _, _ = _build_stats(games)
+
+    dh_team_raw = config.DARK_HORSE.get(matched_contender, "")
+    dh_team_canon = normalize_name(dh_team_raw) if dh_team_raw else ""
+    dh_pts = contender_dh_pts.get(matched_contender, 0.0)
+
+    team_rows = []
+    for raw in config.CONTENDERS[matched_contender]:
+        canon = normalize_name(raw)
+        s = stats[canon]
+        is_dh = canon == dh_team_canon
+        team_dh_pts = dh_pts if is_dh else 0.0
+        award_pts = team_award_pts.get(canon, 0.0)
+        total = s.match_pts + s.goal_pts + s.qualify_pts + s.knockout_pts + award_pts + team_dh_pts
+        team_rows.append({
+            "name": canon,
+            "tier": _tier(canon),
+            "is_dark_horse": is_dh,
+            "match_pts": round(s.match_pts, 2),
+            "goal_pts": round(s.goal_pts, 2),
+            "qualify_pts": round(s.qualify_pts, 2),
+            "knockout_pts": round(s.knockout_pts, 2),
+            "award_pts": round(award_pts, 2),
+            "dh_pts": round(team_dh_pts, 2),
+            "total": round(total, 2),
+            "matches": s.matches,
+        })
+
+    team_rows.sort(key=lambda r: r["total"], reverse=True)
+    grand_total = round(sum(r["total"] for r in team_rows), 2)
+
+    return {
+        "user": matched_contender,
+        "teams": team_rows,
+        "grand_total": grand_total,
+    }
