@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from typing import Optional
 import httpx
 from config import TEAM_ALIASES
@@ -42,11 +43,22 @@ def parse_goals(scorers: Optional[str], score: Optional[str]) -> int:
         return 0
 
 
+def _sort_games(games: list[dict]) -> list[dict]:
+    def _key(g: dict) -> tuple:
+        finished = 0 if is_finished(g) else 1
+        try:
+            date = datetime.strptime(g.get("local_date", ""), "%m/%d/%Y %H:%M")
+        except ValueError:
+            date = datetime.min
+        return (finished, date)
+    return sorted(games, key=_key)
+
+
 def fetch_games() -> list[dict]:
     import config
     if config.DATA_SOURCE == "local":
-        return _load_local(config.LOCAL_JSON_PATH)
-    return _fetch_api()
+        return _sort_games(_load_local(config.LOCAL_JSON_PATH))
+    return _sort_games(_fetch_api())
 
 
 def _load_local(path: str) -> list[dict]:

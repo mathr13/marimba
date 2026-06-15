@@ -175,6 +175,15 @@ const server = http.createServer((req, res) => {
                 return sendJson(res, 200, { ok: true, chat: chat.name });
             } catch (err) {
                 console.error('[whatsapp] Send error:', err.message);
+                // Detached frame / destroyed context = the browser page reloaded
+                // under us. Session is broken. Return 503 so publish.py retries,
+                // then exit cleanly for launchd to restart with a fresh session.
+                if (/detached Frame|Execution context was destroyed|Target closed/i.test(err.message)) {
+                    ready = false;
+                    sendJson(res, 503, { ok: false, error: 'session broken — restarting' });
+                    setTimeout(() => process.exit(1), 200);
+                    return;
+                }
                 return sendJson(res, 500, { ok: false, error: err.message });
             }
         });
@@ -182,6 +191,14 @@ const server = http.createServer((req, res) => {
     }
 
     sendJson(res, 404, { ok: false, error: 'not found' });
+});
+
+server.on('error', err => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`[whatsapp] Port ${PORT} already in use — another instance is running. Exiting.`);
+        process.exit(1);
+    }
+    throw err;
 });
 
 server.listen(PORT, '127.0.0.1', () => {
