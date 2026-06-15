@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import datetime
 from typing import Optional
@@ -78,3 +79,24 @@ def _fetch_api() -> list[dict]:
     if isinstance(data, dict) and "games" in data:
         return data["games"]
     return data
+
+
+def refresh_local_cache() -> None:
+    import subprocess
+    import config
+    result = subprocess.run(
+        ["curl", "-sf", "-A", "Mozilla/5.0 (compatible; FIFAFantasyBot/1.0)", GAMES_URL],
+        capture_output=True,
+        timeout=20,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"curl failed (exit {result.returncode}): {result.stderr.decode()}")
+    data = json.loads(result.stdout)
+    with open(config.LOCAL_JSON_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    game_count = len(data.get("games", [])) if isinstance(data, dict) else len(data)
+    print(f"Updated {config.LOCAL_JSON_PATH} with {game_count} games.")
+
+
+if __name__ == "__main__":
+    refresh_local_cache()
