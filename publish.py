@@ -36,7 +36,9 @@ _WARMUP_DELAY = 3  # seconds between retries
 def format_leaderboard(rows: list[dict], warnings: list[str], last_match: "dict | None") -> str:
     lines = ["🏆 *FIFA Fantasy 2026 — Leaderboard* 🏆", ""]
     for row in rows:
-        lines.append(f"*{row['user']}* — {row['points']:g} pts")
+        m = row.get("matches", 0)
+        match_str = f"{m} {'match' if m == 1 else 'matches'}"
+        lines.append(f"*{row['user']}* — {row['points']:g} pts ({match_str})")
     lines.append("")
     if last_match:
         home = last_match.get("home_team_name_en", "")

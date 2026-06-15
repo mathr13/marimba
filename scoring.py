@@ -20,6 +20,7 @@ class TeamStats:
     qualify_pts: float = 0.0
     knockout_pts: float = 0.0
     qualified: bool = False  # reached R32
+    matches: int = 0
 
 
 # Maps game type → (stage label used in dark-horse, knockout bonus)
@@ -76,6 +77,9 @@ def build_leaderboard(games: list[dict]) -> tuple[list[dict], list[str], "dict |
 
         home = normalize_name(home_raw)
         away = normalize_name(away_raw)
+
+        stats[home].matches += 1
+        stats[away].matches += 1
 
         home_goals = parse_goals(g.get("home_scorers"), g.get("home_score"))
         away_goals = parse_goals(g.get("away_scorers"), g.get("away_score"))
@@ -162,6 +166,7 @@ def build_leaderboard(games: list[dict]) -> tuple[list[dict], list[str], "dict |
     leaderboard_rows: list[dict] = []
     for contender, teams in config.CONTENDERS.items():
         match_total = goal_total = qualify_total = knockout_total = award_total = 0.0
+        matches_total = 0
 
         for raw in teams:
             canon = normalize_name(raw)
@@ -171,6 +176,7 @@ def build_leaderboard(games: list[dict]) -> tuple[list[dict], list[str], "dict |
             qualify_total += s.qualify_pts
             knockout_total += s.knockout_pts
             award_total += team_award_pts.get(canon, 0.0)
+            matches_total += s.matches
 
         dh_total = contender_dh_pts.get(contender, 0.0)
         grand_total = match_total + goal_total + qualify_total + knockout_total + award_total + dh_total
@@ -178,6 +184,7 @@ def build_leaderboard(games: list[dict]) -> tuple[list[dict], list[str], "dict |
         leaderboard_rows.append({
             "user": contender,
             "points": round(grand_total, 2),
+            "matches": matches_total,
             "breakdown": {
                 "match": round(match_total, 2),
                 "goals": round(goal_total, 2),
