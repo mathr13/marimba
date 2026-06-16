@@ -200,7 +200,7 @@ def build_leaderboard(games: list[dict]) -> tuple[list[dict], list[str], "dict |
             },
         })
 
-    leaderboard_rows.sort(key=lambda r: r["points"], reverse=True)
+    leaderboard_rows.sort(key=lambda r: (-r["points"], r["matches"]))
 
     # Assign ranks (ties share the same rank)
     rank = 1
