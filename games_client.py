@@ -72,10 +72,13 @@ def _load_local(path: str) -> list[dict]:
 
 
 def _fetch_api() -> list[dict]:
+    import config
     headers = {"User-Agent": "Mozilla/5.0 (compatible; FIFAFantasyBot/1.0)"}
     resp = httpx.get(GAMES_URL, timeout=15, headers=headers)
     resp.raise_for_status()
     data = resp.json()
+    with open(config.LOCAL_JSON_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
     if isinstance(data, dict) and "games" in data:
         return data["games"]
     return data
