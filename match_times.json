@@ -1,0 +1,364 @@
+{
+  "games": [
+    {
+      "home": "Mexico",
+      "away": "South Africa",
+      "local_date_ist": "06/12/2026 00:30"
+    },
+    {
+      "home": "South Korea",
+      "away": "Czech Republic",
+      "local_date_ist": "06/12/2026 07:30"
+    },
+    {
+      "home": "Canada",
+      "away": "Bosnia and Herzegovina",
+      "local_date_ist": "06/13/2026 00:30"
+    },
+    {
+      "home": "United States",
+      "away": "Paraguay",
+      "local_date_ist": "06/13/2026 06:30"
+    },
+    {
+      "home": "Qatar",
+      "away": "Switzerland",
+      "local_date_ist": "06/14/2026 00:30"
+    },
+    {
+      "home": "Brazil",
+      "away": "Morocco",
+      "local_date_ist": "06/14/2026 03:30"
+    },
+    {
+      "home": "Haiti",
+      "away": "Scotland",
+      "local_date_ist": "06/14/2026 06:30"
+    },
+    {
+      "home": "Australia",
+      "away": "Turkey",
+      "local_date_ist": "06/14/2026 09:30"
+    },
+    {
+      "home": "Germany",
+      "away": "Curaçao",
+      "local_date_ist": "06/14/2026 22:30"
+    },
+    {
+      "home": "Netherlands",
+      "away": "Japan",
+      "local_date_ist": "06/15/2026 01:30"
+    },
+    {
+      "home": "Ivory Coast",
+      "away": "Ecuador",
+      "local_date_ist": "06/15/2026 04:30"
+    },
+    {
+      "home": "Sweden",
+      "away": "Tunisia",
+      "local_date_ist": "06/15/2026 07:30"
+    },
+    {
+      "home": "Spain",
+      "away": "Cape Verde",
+      "local_date_ist": "06/15/2026 21:30"
+    },
+    {
+      "home": "Belgium",
+      "away": "Egypt",
+      "local_date_ist": "06/16/2026 00:30"
+    },
+    {
+      "home": "Saudi Arabia",
+      "away": "Uruguay",
+      "local_date_ist": "06/16/2026 03:30"
+    },
+    {
+      "home": "Iran",
+      "away": "New Zealand",
+      "local_date_ist": "06/16/2026 06:30"
+    },
+    {
+      "home": "France",
+      "away": "Senegal",
+      "local_date_ist": "06/17/2026 00:30"
+    },
+    {
+      "home": "Iraq",
+      "away": "Norway",
+      "local_date_ist": "06/17/2026 03:30"
+    },
+    {
+      "home": "Argentina",
+      "away": "Algeria",
+      "local_date_ist": "06/17/2026 06:30"
+    },
+    {
+      "home": "Austria",
+      "away": "Jordan",
+      "local_date_ist": "06/17/2026 09:30"
+    },
+    {
+      "home": "Portugal",
+      "away": "Democratic Republic of the Congo",
+      "local_date_ist": "06/17/2026 22:30"
+    },
+    {
+      "home": "England",
+      "away": "Croatia",
+      "local_date_ist": "06/18/2026 01:30"
+    },
+    {
+      "home": "Ghana",
+      "away": "Panama",
+      "local_date_ist": "06/18/2026 04:30"
+    },
+    {
+      "home": "Uzbekistan",
+      "away": "Colombia",
+      "local_date_ist": "06/18/2026 07:30"
+    },
+    {
+      "home": "Czech Republic",
+      "away": "South Africa",
+      "local_date_ist": "06/18/2026 21:30"
+    },
+    {
+      "home": "Switzerland",
+      "away": "Bosnia and Herzegovina",
+      "local_date_ist": "06/19/2026 00:30"
+    },
+    {
+      "home": "Canada",
+      "away": "Qatar",
+      "local_date_ist": "06/19/2026 03:30"
+    },
+    {
+      "home": "Mexico",
+      "away": "South Korea",
+      "local_date_ist": "06/19/2026 06:30"
+    },
+    {
+      "home": "United States",
+      "away": "Australia",
+      "local_date_ist": "06/20/2026 00:30"
+    },
+    {
+      "home": "Scotland",
+      "away": "Morocco",
+      "local_date_ist": "06/20/2026 03:30"
+    },
+    {
+      "home": "Brazil",
+      "away": "Haiti",
+      "local_date_ist": "06/20/2026 06:00"
+    },
+    {
+      "home": "Turkey",
+      "away": "Paraguay",
+      "local_date_ist": "06/20/2026 08:30"
+    },
+    {
+      "home": "Netherlands",
+      "away": "Sweden",
+      "local_date_ist": "06/20/2026 22:30"
+    },
+    {
+      "home": "Germany",
+      "away": "Ivory Coast",
+      "local_date_ist": "06/21/2026 01:30"
+    },
+    {
+      "home": "Ecuador",
+      "away": "Curaçao",
+      "local_date_ist": "06/21/2026 05:30"
+    },
+    {
+      "home": "Tunisia",
+      "away": "Japan",
+      "local_date_ist": "06/21/2026 09:30"
+    },
+    {
+      "home": "Spain",
+      "away": "Saudi Arabia",
+      "local_date_ist": "06/21/2026 21:30"
+    },
+    {
+      "home": "Belgium",
+      "away": "Iran",
+      "local_date_ist": "06/22/2026 00:30"
+    },
+    {
+      "home": "Uruguay",
+      "away": "Cape Verde",
+      "local_date_ist": "06/22/2026 03:30"
+    },
+    {
+      "home": "New Zealand",
+      "away": "Egypt",
+      "local_date_ist": "06/22/2026 06:30"
+    },
+    {
+      "home": "Argentina",
+      "away": "Austria",
+      "local_date_ist": "06/22/2026 22:30"
+    },
+    {
+      "home": "France",
+      "away": "Iraq",
+      "local_date_ist": "06/23/2026 02:30"
+    },
+    {
+      "home": "Norway",
+      "away": "Senegal",
+      "local_date_ist": "06/23/2026 05:30"
+    },
+    {
+      "home": "Jordan",
+      "away": "Algeria",
+      "local_date_ist": "06/23/2026 08:30"
+    },
+    {
+      "home": "Portugal",
+      "away": "Uzbekistan",
+      "local_date_ist": "06/23/2026 22:30"
+    },
+    {
+      "home": "England",
+      "away": "Ghana",
+      "local_date_ist": "06/24/2026 01:30"
+    },
+    {
+      "home": "Panama",
+      "away": "Croatia",
+      "local_date_ist": "06/24/2026 04:30"
+    },
+    {
+      "home": "Colombia",
+      "away": "Democratic Republic of the Congo",
+      "local_date_ist": "06/24/2026 07:30"
+    },
+    {
+      "home": "Bosnia and Herzegovina",
+      "away": "Qatar",
+      "local_date_ist": "06/25/2026 00:30"
+    },
+    {
+      "home": "Switzerland",
+      "away": "Canada",
+      "local_date_ist": "06/25/2026 00:30"
+    },
+    {
+      "home": "Morocco",
+      "away": "Haiti",
+      "local_date_ist": "06/25/2026 03:30"
+    },
+    {
+      "home": "Scotland",
+      "away": "Brazil",
+      "local_date_ist": "06/25/2026 03:30"
+    },
+    {
+      "home": "Czech Republic",
+      "away": "Mexico",
+      "local_date_ist": "06/25/2026 06:30"
+    },
+    {
+      "home": "South Africa",
+      "away": "South Korea",
+      "local_date_ist": "06/25/2026 06:30"
+    },
+    {
+      "home": "Curaçao",
+      "away": "Ivory Coast",
+      "local_date_ist": "06/26/2026 01:30"
+    },
+    {
+      "home": "Ecuador",
+      "away": "Germany",
+      "local_date_ist": "06/26/2026 01:30"
+    },
+    {
+      "home": "Japan",
+      "away": "Sweden",
+      "local_date_ist": "06/26/2026 04:30"
+    },
+    {
+      "home": "Tunisia",
+      "away": "Netherlands",
+      "local_date_ist": "06/26/2026 04:30"
+    },
+    {
+      "home": "Paraguay",
+      "away": "Australia",
+      "local_date_ist": "06/26/2026 07:30"
+    },
+    {
+      "home": "Turkey",
+      "away": "United States",
+      "local_date_ist": "06/26/2026 07:30"
+    },
+    {
+      "home": "Norway",
+      "away": "France",
+      "local_date_ist": "06/27/2026 00:30"
+    },
+    {
+      "home": "Senegal",
+      "away": "Iraq",
+      "local_date_ist": "06/27/2026 00:30"
+    },
+    {
+      "home": "Cape Verde",
+      "away": "Saudi Arabia",
+      "local_date_ist": "06/27/2026 05:30"
+    },
+    {
+      "home": "Uruguay",
+      "away": "Spain",
+      "local_date_ist": "06/27/2026 05:30"
+    },
+    {
+      "home": "Egypt",
+      "away": "Iran",
+      "local_date_ist": "06/27/2026 08:30"
+    },
+    {
+      "home": "New Zealand",
+      "away": "Belgium",
+      "local_date_ist": "06/27/2026 08:30"
+    },
+    {
+      "home": "Croatia",
+      "away": "Ghana",
+      "local_date_ist": "06/28/2026 02:30"
+    },
+    {
+      "home": "Panama",
+      "away": "England",
+      "local_date_ist": "06/28/2026 02:30"
+    },
+    {
+      "home": "Colombia",
+      "away": "Portugal",
+      "local_date_ist": "06/28/2026 05:00"
+    },
+    {
+      "home": "Democratic Republic of the Congo",
+      "away": "Uzbekistan",
+      "local_date_ist": "06/28/2026 05:00"
+    },
+    {
+      "home": "Algeria",
+      "away": "Austria",
+      "local_date_ist": "06/28/2026 07:30"
+    },
+    {
+      "home": "Jordan",
+      "away": "Argentina",
+      "local_date_ist": "06/28/2026 07:30"
+    }
+  ]
+}

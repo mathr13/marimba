@@ -66,6 +66,7 @@ TEAM_ALIASES: dict[str, str] = {
 # "api"    → fetch live from https://worldcup26.ir/get/games
 DATA_SOURCE: str = "api"
 LOCAL_JSON_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/sampresp.json"
+MATCH_TIMES_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/match_times.json"
 
 # ---------------------------------------------------------------------------
 # Scoring constants

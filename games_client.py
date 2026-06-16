@@ -55,11 +55,36 @@ def _sort_games(games: list[dict]) -> list[dict]:
     return sorted(games, key=_key)
 
 
+def _overlay_match_times(games: list[dict]) -> list[dict]:
+    """Replace local_date with accurate IST kickoff from match_times.json."""
+    import os
+    import config
+    path = config.MATCH_TIMES_PATH
+    if not os.path.exists(path):
+        return games
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    overlay = {
+        (entry["home"].lower(), entry["away"].lower()): entry["local_date_ist"]
+        for entry in data.get("games", [])
+    }
+    for game in games:
+        key = (
+            game.get("home_team_name_en", "").lower(),
+            game.get("away_team_name_en", "").lower(),
+        )
+        if key in overlay:
+            game["local_date"] = overlay[key]
+    return games
+
+
 def fetch_games() -> list[dict]:
     import config
     if config.DATA_SOURCE == "local":
-        return _sort_games(_load_local(config.LOCAL_JSON_PATH))
-    return _sort_games(_fetch_api())
+        games = _sort_games(_load_local(config.LOCAL_JSON_PATH))
+    else:
+        games = _sort_games(_fetch_api())
+    return _overlay_match_times(games)
 
 
 def _load_local(path: str) -> list[dict]:
