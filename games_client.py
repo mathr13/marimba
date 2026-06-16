@@ -77,11 +77,15 @@ def _fetch_api() -> list[dict]:
     resp = httpx.get(GAMES_URL, timeout=15, headers=headers)
     resp.raise_for_status()
     data = resp.json()
+    new_games = data["games"] if isinstance(data, dict) and "games" in data else data
+    try:
+        old_games = _load_local(config.LOCAL_JSON_PATH)
+    except (FileNotFoundError, json.JSONDecodeError, KeyError):
+        old_games = []
     with open(config.LOCAL_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    if isinstance(data, dict) and "games" in data:
-        return data["games"]
-    return data
+    _auto_commit_cache(old_games, new_games)
+    return new_games
 
 
 def refresh_local_cache() -> None:
@@ -95,10 +99,68 @@ def refresh_local_cache() -> None:
     if result.returncode != 0:
         raise RuntimeError(f"curl failed (exit {result.returncode}): {result.stderr.decode()}")
     data = json.loads(result.stdout)
+    new_games = data["games"] if isinstance(data, dict) and "games" in data else data
+    try:
+        old_games = _load_local(config.LOCAL_JSON_PATH)
+    except (FileNotFoundError, json.JSONDecodeError, KeyError):
+        old_games = []
     with open(config.LOCAL_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    game_count = len(data.get("games", [])) if isinstance(data, dict) else len(data)
-    print(f"Updated {config.LOCAL_JSON_PATH} with {game_count} games.")
+    _auto_commit_cache(old_games, new_games)
+    print(f"Updated {config.LOCAL_JSON_PATH} with {len(new_games)} games.")
+
+
+def _auto_commit_cache(old_games: list[dict], new_games: list[dict]) -> None:
+    import os
+    import subprocess
+    import config
+
+    old_by_id = {g.get("id"): g for g in old_games}
+    new_by_id = {g.get("id"): g for g in new_games}
+
+    lines = []
+
+    if not old_games:
+        lines.append(f"Initial cache: {len(new_games)} games")
+    else:
+        newly_finished = [
+            g for gid, g in new_by_id.items()
+            if is_finished(g) and not is_finished(old_by_id.get(gid, {}))
+        ]
+        if newly_finished:
+            lines.append("Newly finished:")
+            for g in newly_finished:
+                home = g.get("home_team_name_en", "?")
+                away = g.get("away_team_name_en", "?")
+                hs = g.get("home_score", "?")
+                aws = g.get("away_score", "?")
+                date = g.get("local_date", "")[:10]
+                lines.append(f"  {home} {hs}-{aws} {away} ({date})")
+
+        new_ids = set(new_by_id) - set(old_by_id)
+        if new_ids:
+            lines.append(f"New fixtures added: {len(new_ids)}")
+            for gid in sorted(new_ids):
+                g = new_by_id[gid]
+                home = g.get("home_team_name_en", "?")
+                away = g.get("away_team_name_en", "?")
+                date = g.get("local_date", "")[:10]
+                lines.append(f"  {home} vs {away} ({date})")
+
+    if not lines:
+        return
+
+    msg = (
+        "Update sampresp.json from live API\n\n"
+        + "\n".join(lines)
+        + "\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+    )
+    repo_dir = os.path.dirname(os.path.abspath(config.LOCAL_JSON_PATH))
+    try:
+        subprocess.run(["git", "add", config.LOCAL_JSON_PATH], cwd=repo_dir, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", msg], cwd=repo_dir, check=True, capture_output=True)
+    except subprocess.CalledProcessError:
+        pass
 
 
 if __name__ == "__main__":
