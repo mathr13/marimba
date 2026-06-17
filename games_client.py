@@ -28,20 +28,27 @@ def is_finished(game: dict) -> bool:
 
 def parse_goals(scorers: Optional[str], score: Optional[str]) -> int:
     """
-    Count goals from the scorers string (excludes penalty-shootout goals).
-    Falls back to the raw score field when scorers is absent/null.
+    Count goals for fantasy scoring. Prefers the scorers string (excludes
+    penalty-shootout goals) but falls back to the raw score when the scorers
+    string is absent, null, or incomplete (fewer entries than the reported score).
     """
+    raw = 0
+    try:
+        raw = int(score or 0)
+    except ValueError:
+        pass
+
     if scorers and scorers.strip().lower() not in ("null", "", "{}"):
-        # Format: {"Player1 9'","Player2 67'"} — count comma-separated entries inside braces
         inner = scorers.strip()
         if inner.startswith("{") and inner.endswith("}"):
             inner = inner[1:-1]
         if inner.strip():
-            return len([e for e in inner.split(",") if e.strip()])
-    try:
-        return int(score or 0)
-    except ValueError:
-        return 0
+            count = len([e for e in inner.split(",") if e.strip()])
+            # If scorers list has fewer goals than the score field, the API is
+            # missing scorer entries — trust the authoritative score instead.
+            return max(count, raw)
+
+    return raw
 
 
 def _sort_games(games: list[dict]) -> list[dict]:

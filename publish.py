@@ -23,7 +23,7 @@ from datetime import datetime
 import httpx
 
 import config
-from games_client import fetch_games, parse_goals
+from games_client import fetch_games
 from scoring import build_leaderboard, build_user_report
 
 _FIND_GROUPS = pathlib.Path(__file__).parent / "whatsapp_sender" / "find_groups.js"
@@ -44,8 +44,8 @@ def format_leaderboard(rows: list[dict], warnings: list[str], last_match: "dict 
     if last_match:
         home = last_match.get("home_team_name_en", "")
         away = last_match.get("away_team_name_en", "")
-        hs = parse_goals(last_match.get("home_scorers"), last_match.get("home_score"))
-        aws = parse_goals(last_match.get("away_scorers"), last_match.get("away_score"))
+        hs = last_match.get("home_score", "?")
+        aws = last_match.get("away_score", "?")
         date_raw = last_match.get("local_date", "")
         try:
             date_fmt = datetime.strptime(date_raw, "%m/%d/%Y %H:%M").strftime("%d %b %Y")
