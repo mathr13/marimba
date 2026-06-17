@@ -184,8 +184,8 @@ def _auto_commit_cache(old_games: list[dict], new_games: list[dict]) -> None:
     try:
         subprocess.run(["git", "add", config.LOCAL_JSON_PATH], cwd=repo_dir, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", msg], cwd=repo_dir, check=True, capture_output=True)
-    except subprocess.CalledProcessError:
-        pass
+    except subprocess.CalledProcessError as e:
+        print(f"⚠️  git auto-commit failed: {e.stderr.decode().strip() if e.stderr else e}")
 
 
 if __name__ == "__main__":
