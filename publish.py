@@ -13,6 +13,7 @@ Usage:
     python3 publish.py --daemon-status       # check whether the daemon session is ready
     python3 publish.py --find-groups         # list all groups and their JIDs (for config setup)
     python3 publish.py --user <name> [--dry-run] # show per-team breakdown for a specific user
+    python3 publish.py --all                 # show ranked progressive timeline for all contenders
 """
 import sys
 import time
@@ -24,7 +25,7 @@ import httpx
 
 import config
 from games_client import fetch_games
-from scoring import build_leaderboard, build_user_report, load_rank_snapshot, save_rank_snapshot
+from scoring import build_leaderboard, build_user_report, load_rank_snapshot, save_rank_snapshot, build_contender_timeline
 
 _FIND_GROUPS = pathlib.Path(__file__).parent / "whatsapp_sender" / "find_groups.js"
 
@@ -119,6 +120,64 @@ def format_user_stats(report: dict) -> str:
     return "\n".join(lines)
 
 
+def format_contender_timeline(timeline: dict) -> str:
+    tier_emoji = {1: "🔴", 2: "🟡", 3: "🟢", 4: "🔵"}
+    result_emoji = {"W": "✅", "D": "↔️", "L": "❌"}
+
+    lines = []
+    for event in timeline["events"]:
+        date = event["date_str"]
+        team_em = tier_emoji.get(event["tier"], "⭐")
+        res_em = result_emoji.get(event["result"], "?")
+        opp = event["opponent"]
+        stage_tag = f" ({event['stage']})" if event["stage"] else ""
+
+        pts_parts = []
+        if event["match_pts"] > 0:
+            pts_parts.append(f"Match +{event['match_pts']:g}")
+        if event["goal_pts"] > 0:
+            pts_parts.append(f"Goals {event['goals']}×{event['goal_mult']} +{event['goal_pts']:g}")
+        if event["qualify_pts"] > 0:
+            pts_parts.append(f"Qual +{event['qualify_pts']:g}")
+        if event["knockout_pts"] > 0:
+            pts_parts.append(f"KO +{event['knockout_pts']:g}")
+        if event["champion_pts"] > 0:
+            pts_parts.append(f"Champ +{event['champion_pts']:g}")
+        if event["runner_up_pts"] > 0:
+            pts_parts.append(f"Runner-up +{event['runner_up_pts']:g}")
+
+        pts_str = " · ".join(pts_parts)
+        lines.append(f"{date}  {team_em} {event['team']:<15} {res_em} {event['result']} vs {opp:<15}{stage_tag}  {pts_str} → {event['cumulative']:g}")
+
+    if timeline["dark_horse"]:
+        dh = timeline["dark_horse"]
+        lines.append(f"  + Dark Horse ({dh['team']}, {dh['stage']}): +{dh['pts']:g}")
+
+    for award in timeline["awards"]:
+        lines.append(f"  + Award ({award['team']}, {award['name']}): +{award['pts']:g}")
+
+    lines.append(f"  ═══ Grand total: {timeline['grand_total']:g} pts")
+    return "\n".join(lines)
+
+
+def format_all_progressive(leaderboard_rows: list[dict], games: list[dict]) -> str:
+    divider = "━" * 40
+    blocks = [f"🏆 FIFA Fantasy 2026 — Full Breakdown 🏆"]
+
+    for row in leaderboard_rows:
+        blocks.append(f"\n{divider}")
+        blocks.append(f"#{row['rank']}  {row['user']} — {row['points']:g} pts")
+        blocks.append(divider)
+
+        try:
+            timeline = build_contender_timeline(games, row["user"])
+            blocks.append("\n" + format_contender_timeline(timeline))
+        except ValueError as e:
+            blocks.append(f"❌ Error: {e}")
+
+    return "\n".join(blocks)
+
+
 def _daemon_down(exc: Exception) -> None:
     print(f"❌ Can't reach the WhatsApp daemon at {config.WHATSAPP_DAEMON_URL} ({exc}).")
     print("   Start it with launchd:")
@@ -189,6 +248,13 @@ def main() -> None:
         return
 
     games = fetch_games()
+
+    if "--all" in args:
+        rows, warnings, _ = build_leaderboard(games)
+        print(format_all_progressive(rows, games))
+        if warnings:
+            print("\n⚠️ " + "; ".join(warnings))
+        return
 
     # Check for --user flag
     user_name = None

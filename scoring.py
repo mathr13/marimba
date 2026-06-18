@@ -263,6 +263,138 @@ def build_user_report(games: list[dict], user_name: str) -> dict:
     }
 
 
+def build_contender_timeline(games: list[dict], contender: str) -> dict:
+    """Returns a flat chronological timeline of match events for a contender."""
+    matched_contender = None
+    for name in config.CONTENDERS:
+        if name.lower() == contender.lower():
+            matched_contender = name
+            break
+    if matched_contender is None:
+        available = ", ".join(sorted(config.CONTENDERS.keys()))
+        raise ValueError(f"User '{contender}' not found. Available: {available}")
+
+    stats, team_award_pts, contender_dh_pts, _, _ = _build_stats(games)
+
+    team_canons = {normalize_name(raw) for raw in config.CONTENDERS[matched_contender]}
+
+    dh_team_raw = config.DARK_HORSE.get(matched_contender, "")
+    dh_team_canon = normalize_name(dh_team_raw) if dh_team_raw else ""
+    dh_pts = contender_dh_pts.get(matched_contender, 0.0)
+
+    award_events: list[dict] = []
+    for canon in team_canons:
+        a_pts = team_award_pts.get(canon, 0.0)
+        if a_pts > 0:
+            award_name = ""
+            for award_key, team_raw in config.AWARDS.items():
+                if normalize_name(team_raw) == canon and config.AWARD_PTS.get(award_key, 0.0) == a_pts:
+                    award_name = award_key.replace("_", " ").title()
+                    break
+            award_events.append({"team": canon, "name": award_name, "pts": a_pts})
+
+    finished = sorted([g for g in games if is_finished(g)], key=_parse_local_date)
+
+    _STAGE_LABEL = {"group": "", "r32": "R32", "r16": "R16", "qf": "QF", "sf": "SF", "final": "Final"}
+    team_qualified: dict[str, bool] = {}
+    events: list[dict] = []
+    running_total = 0.0
+
+    for g in finished:
+        gtype = g.get("type", "")
+        home_raw = g.get("home_team_name_en", "")
+        away_raw = g.get("away_team_name_en", "")
+        if not is_real_participant(g.get("home_team_id", "0"), home_raw) or \
+           not is_real_participant(g.get("away_team_id", "0"), away_raw):
+            continue
+
+        home = normalize_name(home_raw)
+        away = normalize_name(away_raw)
+        home_goals = parse_goals(g.get("home_scorers"), g.get("home_score"))
+        away_goals = parse_goals(g.get("away_scorers"), g.get("away_score"))
+        game_date = _parse_local_date(g)
+        date_str = game_date.strftime("%d %b") if game_date != datetime.min else "?"
+
+        for team, opponent, team_goals, opp_goals in (
+            (home, away, home_goals, away_goals),
+            (away, home, away_goals, home_goals),
+        ):
+            if team not in team_canons:
+                continue
+
+            tier = _tier(team)
+            goal_mult = config.GOAL_MULTIPLIER[tier]
+
+            if team_goals > opp_goals:
+                result, match_pts = "W", float(config.WIN_PTS)
+            elif team_goals < opp_goals:
+                result, match_pts = "L", 0.0
+            else:
+                result, match_pts = "D", float(config.DRAW_PTS)
+
+            goal_pts = round(team_goals * goal_mult, 2)
+
+            qualify_pts = 0.0
+            if gtype == "r32" and not team_qualified.get(team, False):
+                team_qualified[team] = True
+                qualify_pts = config.QUALIFY_BONUS[tier]
+
+            knockout_pts = champion_pts = runner_up_pts = 0.0
+            if gtype in _STAGE_BONUS:
+                knockout_pts = _STAGE_BONUS[gtype]
+            if gtype == "final":
+                if team_goals > opp_goals:
+                    champion_pts = float(config.CHAMPION_BONUS)
+                elif team_goals < opp_goals:
+                    runner_up_pts = float(config.RUNNER_UP_BONUS)
+
+            event_total = round(match_pts + goal_pts + qualify_pts + knockout_pts + champion_pts + runner_up_pts, 2)
+            running_total = round(running_total + event_total, 2)
+
+            events.append({
+                "date_str": date_str,
+                "team": team,
+                "tier": tier,
+                "opponent": opponent,
+                "result": result,
+                "stage": _STAGE_LABEL.get(gtype, gtype),
+                "goals": team_goals,
+                "goal_mult": goal_mult,
+                "match_pts": match_pts,
+                "goal_pts": goal_pts,
+                "qualify_pts": qualify_pts,
+                "knockout_pts": knockout_pts,
+                "champion_pts": champion_pts,
+                "runner_up_pts": runner_up_pts,
+                "event_total": event_total,
+                "cumulative": running_total,
+            })
+
+    dh_info = None
+    if dh_pts > 0 and dh_team_canon:
+        dh_s = stats[dh_team_canon]
+        if dh_s.knockout_pts >= config.QF_BONUS + config.SF_BONUS:
+            dh_stage = "SF"
+        elif dh_s.knockout_pts >= config.QF_BONUS:
+            dh_stage = "QF"
+        elif dh_s.qualified:
+            dh_stage = "R16"
+        else:
+            dh_stage = "R32"
+        dh_info = {"team": dh_team_canon, "stage": dh_stage, "pts": dh_pts}
+
+    grand_total = round(running_total + dh_pts + sum(a["pts"] for a in award_events), 2)
+
+    return {
+        "user": matched_contender,
+        "events": events,
+        "match_subtotal": running_total,
+        "dark_horse": dh_info,
+        "awards": award_events,
+        "grand_total": grand_total,
+    }
+
+
 _SNAPSHOT_PATH = pathlib.Path(__file__).parent / "rank_snapshot.json"
 
 
