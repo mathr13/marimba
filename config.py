@@ -50,6 +50,7 @@ TEAM_ALIASES: dict[str, str] = {
     "dr congo": "DR Congo",
     "congo dr": "DR Congo",
     "democratic republic of congo": "DR Congo",
+    "democratic republic of the congo": "DR Congo",
     "south korea": "South Korea",
     "korea republic": "South Korea",
     "korea dpr": "South Korea",  # unlikely but safe
@@ -64,7 +65,7 @@ TEAM_ALIASES: dict[str, str] = {
 # ---------------------------------------------------------------------------
 # "local"  → read from LOCAL_JSON_PATH (default, avoids hitting the live API)
 # "api"    → fetch live from https://worldcup26.ir/get/games
-DATA_SOURCE: str = "api"
+DATA_SOURCE: str = "local"
 LOCAL_JSON_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/sampresp.json"
 MATCH_TIMES_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/match_times.json"
 

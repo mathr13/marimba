@@ -139,6 +139,11 @@ def _build_stats(
         if canon not in config.TEAM_TIERS:
             warnings.append(f"No tier defined for '{canon}' — defaulting to Tier 1")
 
+    # --- Warn on API team names that don't normalize to a known tier (points silently dropped)
+    for canon in sorted(api_teams):
+        if canon not in config.TEAM_TIERS:
+            warnings.append(f"API team '{canon}' has no tier mapping — points dropped (check TEAM_ALIASES)")
+
     # --- Awards: highest award per team → credited to team owner
     team_award_pts: dict[str, float] = defaultdict(float)
     for award_key, team_raw in config.AWARDS.items():
