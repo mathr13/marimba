@@ -8,6 +8,26 @@ from config import TEAM_ALIASES
 GAMES_URL = "https://worldcup26.ir/get/games"
 _PLACEHOLDER_RE = re.compile(r"^(winner|loser|runner)", re.IGNORECASE)
 
+_TEAM_REGISTRY: "dict[str, dict] | None" = None
+
+
+def load_team_registry() -> dict[str, dict]:
+    """Load team registry from teams.json (id -> team record), cached."""
+    global _TEAM_REGISTRY
+    if _TEAM_REGISTRY is None:
+        import config
+        with open(config.TEAMS_JSON_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        teams = data.get("teams", data) if isinstance(data, dict) else data
+        _TEAM_REGISTRY = {t["id"]: t for t in teams if t.get("id")}
+    return _TEAM_REGISTRY
+
+
+def canonical_for_id(team_id: str) -> "str | None":
+    """Authoritative canonical name for a game's team_id, or None if unknown."""
+    t = load_team_registry().get(team_id)
+    return normalize_name(t["name_en"]) if t else None
+
 
 def normalize_name(raw: str) -> str:
     """Return canonical team name used as key in TEAM_TIERS."""

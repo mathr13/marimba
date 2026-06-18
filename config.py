@@ -68,6 +68,7 @@ TEAM_ALIASES: dict[str, str] = {
 DATA_SOURCE: str = "local"
 LOCAL_JSON_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/sampresp.json"
 MATCH_TIMES_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/match_times.json"
+TEAMS_JSON_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/teams.json"
 
 # ---------------------------------------------------------------------------
 # Scoring constants

@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 
 import config
-from games_client import normalize_name, is_real_participant, is_finished, parse_goals
+from games_client import normalize_name, is_real_participant, is_finished, parse_goals, canonical_for_id
 
 
 def _parse_local_date(game: dict) -> datetime:
@@ -54,15 +54,6 @@ def _build_stats(
     finished_games = [g for g in games if is_finished(g)]
     last_match = max(finished_games, key=_parse_local_date) if finished_games else None
 
-    # --- Collect all canonical API team names seen in games (for warning detection)
-    api_teams: set[str] = set()
-    for g in games:
-        for side in ("home", "away"):
-            tid = g.get(f"{side}_team_id", "0")
-            name = g.get(f"{side}_team_name_en", "")
-            if is_real_participant(tid, name):
-                api_teams.add(normalize_name(name))
-
     # --- Process each finished game
     for g in games:
         if not is_finished(g):
@@ -80,8 +71,12 @@ def _build_stats(
         if not home_real or not away_real:
             continue
 
-        home = normalize_name(home_raw)
-        away = normalize_name(away_raw)
+        # Resolve teams by ID (authoritative) instead of by name parsing
+        home = canonical_for_id(home_id)
+        away = canonical_for_id(away_id)
+        if home is None or away is None:
+            warnings.append(f"Game team_id not in teams.json registry: {home_id}/{away_id} ({home_raw} vs {away_raw})")
+            continue
 
         stats[home].matches += 1
         stats[away].matches += 1
@@ -138,11 +133,6 @@ def _build_stats(
     for canon in all_roster_canonical:
         if canon not in config.TEAM_TIERS:
             warnings.append(f"No tier defined for '{canon}' — defaulting to Tier 1")
-
-    # --- Warn on API team names that don't normalize to a known tier (points silently dropped)
-    for canon in sorted(api_teams):
-        if canon not in config.TEAM_TIERS:
-            warnings.append(f"API team '{canon}' has no tier mapping — points dropped (check TEAM_ALIASES)")
 
     # --- Awards: highest award per team → credited to team owner
     team_award_pts: dict[str, float] = defaultdict(float)
@@ -307,14 +297,18 @@ def build_contender_timeline(games: list[dict], contender: str) -> dict:
 
     for g in finished:
         gtype = g.get("type", "")
+        home_id = g.get("home_team_id", "0")
+        away_id = g.get("away_team_id", "0")
         home_raw = g.get("home_team_name_en", "")
         away_raw = g.get("away_team_name_en", "")
-        if not is_real_participant(g.get("home_team_id", "0"), home_raw) or \
-           not is_real_participant(g.get("away_team_id", "0"), away_raw):
+        if not is_real_participant(home_id, home_raw) or \
+           not is_real_participant(away_id, away_raw):
             continue
 
-        home = normalize_name(home_raw)
-        away = normalize_name(away_raw)
+        home = canonical_for_id(home_id)
+        away = canonical_for_id(away_id)
+        if home is None or away is None:
+            continue
         home_goals = parse_goals(g.get("home_scorers"), g.get("home_score"))
         away_goals = parse_goals(g.get("away_scorers"), g.get("away_score"))
         game_date = _parse_local_date(g)
