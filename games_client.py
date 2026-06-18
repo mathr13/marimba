@@ -124,7 +124,7 @@ def _fetch_api() -> list[dict]:
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         old_games = []
     with open(config.LOCAL_JSON_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
     _auto_commit_cache(old_games, new_games)
     return new_games
 
@@ -146,7 +146,7 @@ def refresh_local_cache() -> None:
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         old_games = []
     with open(config.LOCAL_JSON_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
     _auto_commit_cache(old_games, new_games)
     print(f"Updated {config.LOCAL_JSON_PATH} with {len(new_games)} games.")
 
