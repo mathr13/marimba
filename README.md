@@ -29,10 +29,14 @@ worldcup26.ir API
 
 | File | Role |
 |------|------|
-| `config.py` | All settings: player rosters, team tiers, scoring constants, dark horse picks, WhatsApp config |
-| `games_client.py` | Fetches match data from the API (or a local JSON file); sorts games — finished first, then chronological |
-| `scoring.py` | Calculates points and builds the ranked leaderboard |
-| `publish.py` | Formats the message and sends it via the daemon; supports `--dry-run`, `--test`, `--daemon-status` |
+| `config.py` | All settings: player rosters, team tiers, scoring constants, dark horse picks, WhatsApp config — everything is keyed by **team id** (see [Team identity](#team-identity)) |
+| `teams.json` | Authoritative team registry — an id-keyed map (`{ "17": { "name_en": "Germany", … } }`) of all 48 World Cup teams |
+| `games_client.py` | Fetches match data from the API (or a local JSON file); sorts games — finished first, then chronological; matches games to teams by id |
+| `scoring.py` | Calculates points and builds the ranked leaderboard, per-user breakdowns, and progressive timelines |
+| `publish.py` | Formats the message and sends it via the daemon; supports `--dry-run`, `--test`, `--daemon-status`, `--user`, `--all` |
+| `match_times.json` | Accurate IST kickoff times (joined to games by team id) overlaid on the API's `local_date` |
+| `build_match_times.py` | One-time/refresh script that regenerates `match_times.json` from ESPN's schedule API |
+| `TEAM_MAPPING.md` | Human-readable mapping report (id · FIFA code · name · tier · owner) for cross-verifying `config.py` |
 | `whatsapp_sender/daemon.js` | Long-lived Node.js process that holds a warm WhatsApp session and exposes a local HTTP API (`POST /send`, `GET /health`) |
 | `com.fifafantasy.whatsappd.plist` | macOS launchd agent — starts the daemon at login and auto-restarts it if it crashes |
 
@@ -48,6 +52,14 @@ worldcup26.ir API
 | Champion / Runner-up | +10 / +5 pts |
 | Dark Horse (Tier 3/4 team) — R16 / QF / SF | +1 / +3 / +5 pts |
 | Tournament awards (Golden Ball, Boot, etc.) | 3–5 pts |
+
+### Team identity
+
+Teams are identified by their **stable numeric id** from `teams.json` everywhere — rosters, tiers, dark-horse picks, awards, the match-times overlay, and game-to-team matching. There is no name-based or fuzzy string matching anywhere in the pipeline, which keeps scoring robust against spelling variations in the API feed (e.g. "Democratic Republic of the Congo" vs "DR Congo").
+
+- `config.py` structures are keyed by id, with the team name kept as an inline comment for readability.
+- `TEAM_DISPLAY_OVERRIDES` in `config.py` supplies short display names for a few teams (e.g. `4 → "Czechia"`); everything else displays `name_en` straight from the registry.
+- `TEAM_MAPPING.md` is the at-a-glance map of every id → team → tier → owner, for verifying `config.py` after roster changes.
 
 ---
 
@@ -76,10 +88,11 @@ This downloads the pinned `whatsapp-web.js` fork (which fixes a `ready`-event bu
 
 ### 3. Configure your league
 
-Edit `config.py`:
+Edit `config.py` (all team references are **team ids** from `teams.json` — look them up there or in `TEAM_MAPPING.md`):
 
-- **`CONTENDERS`** — map each player's name to their list of national teams
-- **`DARK_HORSE`** — each player's chosen dark horse team (must be Tier 3 or 4)
+- **`CONTENDERS`** — map each player's name to their list of team ids
+- **`DARK_HORSE`** — each player's chosen dark horse team id (must be Tier 3 or 4)
+- **`TEAM_TIERS`** — team id → tier (1–4), drives goal multipliers and qualify bonuses
 - **`WHATSAPP_GROUP_ID`** — the `…@g.us` JID of your WhatsApp group (run `python3 publish.py --find-groups` to find it)
 
 ### 4. First-time WhatsApp login (one-time QR scan)
@@ -112,24 +125,30 @@ tail -f ~/Library/Logs/fifafantasy-whatsappd.log
 ## Usage
 
 ```bash
-python3 publish.py                 # fetch live data and send leaderboard to the group
-python3 publish.py --dry-run       # print the message without sending
-python3 publish.py --test          # send a timestamped test message
-python3 publish.py --daemon-status # check whether the WhatsApp session is ready
-python3 publish.py --find-groups   # list all WhatsApp groups and their JIDs
+python3 publish.py                  # fetch live data and send leaderboard to the group
+python3 publish.py --dry-run        # print the message without sending
+python3 publish.py --test           # send a timestamped test message
+python3 publish.py --daemon-status  # check whether the WhatsApp session is ready
+python3 publish.py --find-groups    # list all WhatsApp groups and their JIDs
+python3 publish.py --user <name>    # print one contender's per-team points breakdown
+python3 publish.py --all            # print every contender's progressive points timeline (audit view)
 ```
+
+The leaderboard shows **rank-movement indicators** versus the previous send (🟢▲ up, 🔴▼ down, ➡️ unchanged, 🆕 first appearance). Previous ranks are persisted in `rank_snapshot.json`, which is updated only on a real send (not on `--dry-run`).
+
+`--user` and `--all` print to stdout only — they never send to WhatsApp — and are meant for auditing how points were calculated (every match event with its running cumulative total).
 
 ### Example output
 
 ```
 🏆 FIFA Fantasy 2026 — Leaderboard 🏆
 
-Shishir — 29 pts (6 matches)
-Tushar  — 26 pts (5 matches)
-Ojus    — 11 pts (4 matches)
+➡️ Tushar  — 37 pts (7 matches)
+🟢▲1 Shishir — 29 pts (6 matches)
+🔴▼1 Ashwini — 24 pts (7 matches)
 ...
 
-Data up to: Sweden 5-1 Tunisia (14 Jun 2026)
+Data up to: Portugal 1-1 DR Congo (17 Jun 2026)
 ```
 
 ---
@@ -142,3 +161,5 @@ Set `DATA_SOURCE` in `config.py`:
 |-------|-----------|
 | `"api"` | Fetches live data from `https://worldcup26.ir/get/games` |
 | `"local"` | Reads from `LOCAL_JSON_PATH` (useful for testing without hitting the API) |
+
+When fetching from the API, the response is cached to `LOCAL_JSON_PATH` (`sampresp.json`) with sorted keys, so each refresh produces a clean git diff containing only the fields that actually changed (scores, `finished`, etc.) rather than spurious key-order noise. Newly finished matches are auto-committed.
