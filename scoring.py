@@ -1,3 +1,5 @@
+import json
+import pathlib
 from dataclasses import dataclass, field
 from collections import defaultdict
 from datetime import datetime
@@ -259,3 +261,19 @@ def build_user_report(games: list[dict], user_name: str) -> dict:
         "teams": team_rows,
         "grand_total": grand_total,
     }
+
+
+_SNAPSHOT_PATH = pathlib.Path(__file__).parent / "rank_snapshot.json"
+
+
+def load_rank_snapshot() -> dict[str, int]:
+    if not _SNAPSHOT_PATH.exists():
+        return {}
+    with open(_SNAPSHOT_PATH) as f:
+        return json.load(f)
+
+
+def save_rank_snapshot(rows: list[dict]) -> None:
+    snapshot = {row["user"]: row["rank"] for row in rows}
+    with open(_SNAPSHOT_PATH, "w") as f:
+        json.dump(snapshot, f, indent=2)

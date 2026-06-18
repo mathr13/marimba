@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 
 from games_client import fetch_games
-from scoring import build_leaderboard
+from scoring import build_leaderboard, load_rank_snapshot
 
 app = FastAPI(title="FIFA Fantasy API")
 
@@ -19,6 +19,10 @@ def leaderboard():
         raise HTTPException(status_code=502, detail=f"Failed to fetch games: {exc}")
 
     rows, warnings, last_match = build_leaderboard(games)
+    snapshot = load_rank_snapshot()
+    for row in rows:
+        prev = snapshot.get(row["user"])
+        row["rank_delta"] = (prev - row["rank"]) if prev is not None else None
     last_match_summary = None
     if last_match:
         last_match_summary = {

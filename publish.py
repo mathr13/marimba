@@ -24,7 +24,7 @@ import httpx
 
 import config
 from games_client import fetch_games
-from scoring import build_leaderboard, build_user_report
+from scoring import build_leaderboard, build_user_report, load_rank_snapshot, save_rank_snapshot
 
 _FIND_GROUPS = pathlib.Path(__file__).parent / "whatsapp_sender" / "find_groups.js"
 
@@ -34,12 +34,33 @@ _WARMUP_RETRIES = 5
 _WARMUP_DELAY = 3  # seconds between retries
 
 
-def format_leaderboard(rows: list[dict], warnings: list[str], last_match: "dict | None") -> str:
+def _rank_delta_prefix(delta: "int | None") -> str:
+    if delta is None:
+        return "🆕 "
+    if delta > 0:
+        return f"🟢▲{delta} "
+    if delta < 0:
+        return f"🔴▼{abs(delta)} "
+    return "➡️ "
+
+
+def format_leaderboard(
+    rows: list[dict],
+    warnings: list[str],
+    last_match: "dict | None",
+    snapshot: "dict[str, int] | None" = None,
+) -> str:
     lines = ["🏆 *FIFA Fantasy 2026 — Leaderboard* 🏆", ""]
     for row in rows:
         m = row.get("matches", 0)
         match_str = f"{m} {'match' if m == 1 else 'matches'}"
-        lines.append(f"*{row['user']}* — {row['points']:g} pts ({match_str})")
+        if snapshot is not None:
+            prev = snapshot.get(row["user"])
+            delta = (prev - row["rank"]) if prev is not None else None
+            prefix = _rank_delta_prefix(delta)
+        else:
+            prefix = ""
+        lines.append(f"{prefix}*{row['user']}* — {row['points']:g} pts ({match_str})")
     lines.append("")
     if last_match:
         home = last_match.get("home_team_name_en", "")
@@ -185,7 +206,8 @@ def main() -> None:
             sys.exit(1)
     else:
         rows, warnings, last_match = build_leaderboard(games)
-        message = format_leaderboard(rows, warnings, last_match)
+        snapshot = load_rank_snapshot()
+        message = format_leaderboard(rows, warnings, last_match, snapshot=snapshot)
 
     print(message)
     print()
@@ -195,6 +217,8 @@ def main() -> None:
         return
 
     _send(message)
+    if not user_name:
+        save_rank_snapshot(rows)
 
 
 if __name__ == "__main__":
