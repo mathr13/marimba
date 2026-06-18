@@ -1,63 +1,82 @@
 # ---------------------------------------------------------------------------
-# Contenders and their team rosters
+# Contenders and their team rosters (team ids from teams.json)
 # ---------------------------------------------------------------------------
 CONTENDERS: dict[str, list[str]] = {
-    "Shishir": ["Germany", "Netherlands", "United States", "Australia", "Curaçao", "Czech Republic (Czechia)"],
-    "Tushar": ["Brazil", "Mexico", "Colombia", "Iran", "Ivory Coast", "Scotland", "Sweden", "New Zealand"],
-    "Shivansh": ["Belgium", "Spain", "Ecuador", "Algeria", "Qatar", "Tunisia", "Ghana", "Jordan"],
-    "Ghanghas": ["Austria", "Croatia", "Morocco", "Switzerland", "Uruguay", "Turkey (Türkiye)"],
-    "Ojus": ["Argentina", "Japan", "South Korea", "Paraguay", "Uzbekistan", "Haiti"],
-    "Nikhil": ["England", "Portugal", "Senegal", "Saudi Arabia", "Bosnia and Herzegovina", "Cape Verde", "Iraq"],
-    "Ashwini": ["Canada", "France", "Egypt", "Norway", "Panama", "DR Congo", "South Africa"],
+    "Shishir":  ["17", "21", "13", "15", "18", "4"],   # Germany, Netherlands, USA, Australia, Curaçao, Czechia
+    "Tushar":   ["9", "1", "44", "27", "19", "12", "23", "28"],  # Brazil, Mexico, Colombia, Iran, Ivory Coast, Scotland, Sweden, New Zealand
+    "Shivansh": ["25", "29", "20", "38", "7", "24", "47", "40"],  # Belgium, Spain, Ecuador, Algeria, Qatar, Tunisia, Ghana, Jordan
+    "Ghanghas": ["39", "46", "10", "8", "32", "16"],   # Austria, Croatia, Morocco, Switzerland, Uruguay, Türkiye
+    "Ojus":     ["37", "22", "3", "14", "43", "11"],   # Argentina, Japan, South Korea, Paraguay, Uzbekistan, Haiti
+    "Nikhil":   ["45", "41", "34", "31", "6", "30", "35"],  # England, Portugal, Senegal, Saudi Arabia, Bosnia and Herzegovina, Cape Verde, Iraq
+    "Ashwini":  ["5", "33", "26", "36", "48", "42", "2"],  # Canada, France, Egypt, Norway, Panama, DR Congo, South Africa
 }
 
 # ---------------------------------------------------------------------------
-# Team tiers (edit these if the tier list changes)
+# Team tiers (team id → tier). All 48 WC2026 teams.
 # ---------------------------------------------------------------------------
 TEAM_TIERS: dict[str, int] = {
     # Tier 1
-    "Argentina": 1, "France": 1, "Spain": 1, "England": 1, "Brazil": 1,
-    "Portugal": 1, "Netherlands": 1, "Belgium": 1, "Germany": 1,
-    "United States": 1, "Mexico": 1, "Canada": 1,
+    "37": 1,  # Argentina
+    "33": 1,  # France
+    "29": 1,  # Spain
+    "45": 1,  # England
+    "9":  1,  # Brazil
+    "41": 1,  # Portugal
+    "21": 1,  # Netherlands
+    "25": 1,  # Belgium
+    "17": 1,  # Germany
+    "13": 1,  # United States
+    "1":  1,  # Mexico
+    "5":  1,  # Canada
     # Tier 2
-    "Croatia": 2, "Morocco": 2, "Colombia": 2, "Uruguay": 2, "Switzerland": 2,
-    "Japan": 2, "Senegal": 2, "Iran": 2, "South Korea": 2, "Ecuador": 2,
-    "Austria": 2, "Australia": 2,
+    "46": 2,  # Croatia
+    "10": 2,  # Morocco
+    "44": 2,  # Colombia
+    "32": 2,  # Uruguay
+    "8":  2,  # Switzerland
+    "22": 2,  # Japan
+    "34": 2,  # Senegal
+    "27": 2,  # Iran
+    "3":  2,  # South Korea
+    "20": 2,  # Ecuador
+    "39": 2,  # Austria
+    "15": 2,  # Australia
     # Tier 3
-    "Norway": 3, "Egypt": 3, "Algeria": 3, "Scotland": 3, "Ivory Coast": 3,
-    "Tunisia": 3, "Paraguay": 3, "Panama": 3, "Sweden": 3, "Uzbekistan": 3,
-    "Qatar": 3, "Saudi Arabia": 3,
+    "36": 3,  # Norway
+    "26": 3,  # Egypt
+    "38": 3,  # Algeria
+    "12": 3,  # Scotland
+    "19": 3,  # Ivory Coast
+    "24": 3,  # Tunisia
+    "14": 3,  # Paraguay
+    "48": 3,  # Panama
+    "23": 3,  # Sweden
+    "43": 3,  # Uzbekistan
+    "7":  3,  # Qatar
+    "31": 3,  # Saudi Arabia
     # Tier 4
-    "Ghana": 4, "South Africa": 4, "Jordan": 4, "Cape Verde": 4, "Curaçao": 4,
-    "Haiti": 4, "New Zealand": 4, "Czechia": 4, "Bosnia and Herzegovina": 4,
-    "Türkiye": 4, "Iraq": 4, "DR Congo": 4,
+    "47": 4,  # Ghana
+    "2":  4,  # South Africa
+    "40": 4,  # Jordan
+    "30": 4,  # Cape Verde
+    "18": 4,  # Curaçao
+    "11": 4,  # Haiti
+    "28": 4,  # New Zealand
+    "4":  4,  # Czechia
+    "6":  4,  # Bosnia and Herzegovina
+    "16": 4,  # Türkiye
+    "35": 4,  # Iraq
+    "42": 4,  # DR Congo
 }
 
 # ---------------------------------------------------------------------------
-# Name aliases: roster name / API name variants → canonical TEAM_TIERS key
+# Short display names for teams whose registry name_en differs from preferred
+# All others use name_en from teams.json directly.
 # ---------------------------------------------------------------------------
-TEAM_ALIASES: dict[str, str] = {
-    # Roster variants
-    "czech republic (czechia)": "Czechia",
-    "czechia": "Czechia",
-    "czech republic": "Czechia",
-    "turkey (türkiye)": "Türkiye",
-    "turkey": "Türkiye",
-    "türkiye": "Türkiye",
-    "ivory coast": "Ivory Coast",
-    "côte d'ivoire": "Ivory Coast",
-    "cote d'ivoire": "Ivory Coast",
-    "dr congo": "DR Congo",
-    "congo dr": "DR Congo",
-    "democratic republic of congo": "DR Congo",
-    "democratic republic of the congo": "DR Congo",
-    "south korea": "South Korea",
-    "korea republic": "South Korea",
-    "korea dpr": "South Korea",  # unlikely but safe
-    "united states": "United States",
-    "usa": "United States",
-    "curaçao": "Curaçao",
-    "curacao": "Curaçao",
+TEAM_DISPLAY_OVERRIDES: dict[str, str] = {
+    "4":  "Czechia",    # registry: "Czech Republic"
+    "16": "Türkiye",    # registry: "Turkey"
+    "42": "DR Congo",   # registry: "Democratic Republic of the Congo"
 }
 
 # ---------------------------------------------------------------------------
@@ -104,20 +123,19 @@ AWARD_PTS: dict[str, float] = {
 # Optional manual inputs (leave empty to disable)
 # ---------------------------------------------------------------------------
 
-# Map award key → team name (canonical). Only highest per team counts.
-# Example: AWARDS = {"golden_ball": "Argentina", "golden_boot": "France"}
+# Map award key → team id. Only highest per team counts.
+# Example: AWARDS = {"golden_ball": "37", "golden_boot": "33"}   # 37=Argentina, 33=France
 AWARDS: dict[str, str] = {}
 
-# Map contender name → their Dark Horse team (must be Tier 3 or 4).
-# Example: DARK_HORSE = {"Ojus": "Haiti", "Nikhil": "Cape Verde"}
+# Map contender name → their Dark Horse team id (must be Tier 3 or 4).
 DARK_HORSE: dict[str, str] = {
-    "Ojus": "Paraguay",
-    "Ashwini": "Norway",
-    "Shivansh": "Algeria",
-    "Ghanghas": "Türkiye",
-    "Shishir": "Czechia",
-    "Nikhil": "Bosnia and Herzegovina",
-    "Tushar": "Sweden",
+    "Ojus":     "14",   # Paraguay
+    "Ashwini":  "36",   # Norway
+    "Shivansh": "38",   # Algeria
+    "Ghanghas": "16",   # Türkiye
+    "Shishir":  "4",    # Czechia
+    "Nikhil":   "6",    # Bosnia and Herzegovina
+    "Tushar":   "23",   # Sweden
 }
 
 # ---------------------------------------------------------------------------

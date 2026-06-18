@@ -3,7 +3,6 @@ import re
 from datetime import datetime
 from typing import Optional
 import httpx
-from config import TEAM_ALIASES
 
 GAMES_URL = "https://worldcup26.ir/get/games"
 _PLACEHOLDER_RE = re.compile(r"^(winner|loser|runner)", re.IGNORECASE)
@@ -12,30 +11,22 @@ _TEAM_REGISTRY: "dict[str, dict] | None" = None
 
 
 def load_team_registry() -> dict[str, dict]:
-    """Load team registry from teams.json (id -> team record), cached."""
+    """Load id-keyed team registry from teams.json (id -> team record), cached."""
     global _TEAM_REGISTRY
     if _TEAM_REGISTRY is None:
         import config
         with open(config.TEAMS_JSON_PATH, encoding="utf-8") as f:
-            data = json.load(f)
-        teams = data.get("teams", data) if isinstance(data, dict) else data
-        _TEAM_REGISTRY = {t["id"]: t for t in teams if t.get("id")}
+            _TEAM_REGISTRY = json.load(f)
     return _TEAM_REGISTRY
 
 
-def canonical_for_id(team_id: str) -> "str | None":
-    """Authoritative canonical name for a game's team_id, or None if unknown."""
+def display_name_for_id(team_id: str) -> "str | None":
+    """Human-readable team name for display. Prefers TEAM_DISPLAY_OVERRIDES, else registry name_en."""
+    import config
+    if team_id in config.TEAM_DISPLAY_OVERRIDES:
+        return config.TEAM_DISPLAY_OVERRIDES[team_id]
     t = load_team_registry().get(team_id)
-    return normalize_name(t["name_en"]) if t else None
-
-
-def normalize_name(raw: str) -> str:
-    """Return canonical team name used as key in TEAM_TIERS."""
-    cleaned = raw.strip().lower()
-    if cleaned in TEAM_ALIASES:
-        return TEAM_ALIASES[cleaned]
-    # Title-case fallback — preserves original if no alias matches
-    return raw.strip()
+    return t["name_en"] if t else None
 
 
 def is_real_participant(team_id: str, name: str) -> bool:
@@ -83,7 +74,7 @@ def _sort_games(games: list[dict]) -> list[dict]:
 
 
 def _overlay_match_times(games: list[dict]) -> list[dict]:
-    """Replace local_date with accurate IST kickoff from match_times.json."""
+    """Replace local_date with accurate IST kickoff from match_times.json (joined by team ids)."""
     import os
     import config
     path = config.MATCH_TIMES_PATH
@@ -92,14 +83,12 @@ def _overlay_match_times(games: list[dict]) -> list[dict]:
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
     overlay = {
-        (entry["home"].lower(), entry["away"].lower()): entry["local_date_ist"]
+        (entry["home_id"], entry["away_id"]): entry["local_date_ist"]
         for entry in data.get("games", [])
+        if entry.get("home_id") and entry.get("away_id")
     }
     for game in games:
-        key = (
-            game.get("home_team_name_en", "").lower(),
-            game.get("away_team_name_en", "").lower(),
-        )
+        key = (game.get("home_team_id", ""), game.get("away_team_id", ""))
         if key in overlay:
             game["local_date"] = overlay[key]
     return games

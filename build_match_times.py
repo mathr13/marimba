@@ -7,6 +7,8 @@ Run once (or re-run to refresh):
 
 The output file is committed to the repo and used by games_client.py to
 override the inaccurate local_date values returned by worldcup26.ir.
+Each entry includes home_id/away_id (from teams.json) so the overlay
+join is fully id-based and name-independent.
 """
 
 import json
@@ -20,9 +22,10 @@ IST = timezone(timedelta(hours=5, minutes=30))
 TOURNAMENT_START = date(2026, 6, 11)
 TOURNAMENT_END = date(2026, 7, 19)
 OUTPUT_PATH = "/Users/shishirmathur/Downloads/fifa_fantasy/match_times.json"
+TEAMS_PATH = "/Users/shishirmathur/Downloads/fifa_fantasy/teams.json"
 
-# ESPN team name → name used in sampresp.json (home_team_name_en / away_team_name_en)
-ESPN_TO_SAMPRESP: dict[str, str] = {
+# ESPN team name → name_en in teams.json (for id resolution at generation time only)
+ESPN_TO_REGISTRY: dict[str, str] = {
     "Bosnia-Herzegovina": "Bosnia and Herzegovina",
     "Congo DR": "Democratic Republic of the Congo",
     "Czechia": "Czech Republic",
@@ -30,11 +33,19 @@ ESPN_TO_SAMPRESP: dict[str, str] = {
 }
 
 
-def _espn_name(raw: str) -> str:
-    return ESPN_TO_SAMPRESP.get(raw, raw)
+def _load_name_to_id() -> dict[str, str]:
+    """Build lowercase name_en -> id map from the teams registry."""
+    registry = json.load(open(TEAMS_PATH, encoding="utf-8"))
+    return {t["name_en"].lower(): t["id"] for t in registry.values()}
+
+
+def _resolve_id(name: str, name_to_id: dict[str, str]) -> "str | None":
+    normalized = ESPN_TO_REGISTRY.get(name, name)
+    return name_to_id.get(normalized.lower())
 
 
 def fetch_all_matches() -> list[dict]:
+    name_to_id = _load_name_to_id()
     games = []
     d = TOURNAMENT_START
     while d <= TOURNAMENT_END:
@@ -59,7 +70,7 @@ def fetch_all_matches() -> list[dict]:
                 competitors = competition.get("competitors", [])
                 home_name = away_name = ""
                 for c in competitors:
-                    name = _espn_name(c.get("team", {}).get("displayName", ""))
+                    name = c.get("team", {}).get("displayName", "")
                     if c.get("homeAway") == "home":
                         home_name = name
                     else:
@@ -68,16 +79,20 @@ def fetch_all_matches() -> list[dict]:
                 # Skip placeholder/TBD entries (e.g. "Group A Winner")
                 if not home_name or not away_name:
                     continue
-                if "winner" in home_name.lower() or "winner" in away_name.lower():
+                if any(kw in n.lower() for n in (home_name, away_name) for kw in ("winner", "loser", "place")):
                     continue
-                if "place" in home_name.lower() or "place" in away_name.lower():
-                    continue
-                if "loser" in home_name.lower() or "loser" in away_name.lower():
+
+                home_id = _resolve_id(home_name, name_to_id)
+                away_id = _resolve_id(away_name, name_to_id)
+                if home_id is None or away_id is None:
+                    print(f"  Warning: unresolved id for '{home_name}' or '{away_name}'", file=sys.stderr)
                     continue
 
                 games.append({
-                    "home": home_name,
-                    "away": away_name,
+                    "home": ESPN_TO_REGISTRY.get(home_name, home_name),
+                    "away": ESPN_TO_REGISTRY.get(away_name, away_name),
+                    "home_id": home_id,
+                    "away_id": away_id,
                     "local_date_ist": local_date_ist,
                 })
         except Exception as exc:
