@@ -384,7 +384,7 @@ def build_contender_timeline(games: list[dict], contender: str) -> dict:
     }
 
 
-_SNAPSHOT_PATH = pathlib.Path(__file__).parent / "rank_snapshot.json"
+_SNAPSHOT_PATH = pathlib.Path(config.RANK_SNAPSHOT_PATH)
 
 
 def load_rank_snapshot() -> dict[str, int]:

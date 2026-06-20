@@ -24,7 +24,7 @@ from datetime import datetime
 import httpx
 
 import config
-from games_client import fetch_games
+from games_client import fetch_games, commit_data_files
 from scoring import build_leaderboard, build_user_report, load_rank_snapshot, save_rank_snapshot, build_contender_timeline
 
 _FIND_GROUPS = pathlib.Path(__file__).parent / "whatsapp_sender" / "find_groups.js"
@@ -285,6 +285,8 @@ def main() -> None:
     _send(message)
     if not user_name:
         save_rank_snapshot(rows)
+    # Commit the updated game cache and rank snapshot together in one commit.
+    commit_data_files()
 
 
 if __name__ == "__main__":

@@ -125,7 +125,11 @@ def _fetch_api() -> list[dict]:
         old_games = []
     with open(config.LOCAL_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
-    _auto_commit_cache(old_games, new_games)
+    # Defer the commit: stash the human-readable game diff so commit_data_files()
+    # can bundle it together with the rank snapshot in a single commit at the end
+    # of the run (after the leaderboard has been published and the snapshot saved).
+    global _PENDING_GAME_LINES
+    _PENDING_GAME_LINES = _describe_game_changes(old_games, new_games)
     return new_games
 
 
@@ -147,58 +151,99 @@ def refresh_local_cache() -> None:
         old_games = []
     with open(config.LOCAL_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
-    _auto_commit_cache(old_games, new_games)
+    global _PENDING_GAME_LINES
+    _PENDING_GAME_LINES = _describe_game_changes(old_games, new_games)
+    commit_data_files()
     print(f"Updated {config.LOCAL_JSON_PATH} with {len(new_games)} games.")
 
 
-def _auto_commit_cache(old_games: list[dict], new_games: list[dict]) -> None:
+# Human-readable summary of the most recent game-data change, awaiting commit.
+_PENDING_GAME_LINES: list[str] = []
+
+
+def _describe_game_changes(old_games: list[dict], new_games: list[dict]) -> list[str]:
+    """Build commit-message lines summarizing what changed in the game cache."""
+    old_by_id = {g.get("id"): g for g in old_games}
+    new_by_id = {g.get("id"): g for g in new_games}
+
+    lines: list[str] = []
+
+    if not old_games:
+        lines.append(f"Initial cache: {len(new_games)} games")
+        return lines
+
+    newly_finished = [
+        g for gid, g in new_by_id.items()
+        if is_finished(g) and not is_finished(old_by_id.get(gid, {}))
+    ]
+    if newly_finished:
+        lines.append("Newly finished:")
+        for g in newly_finished:
+            home = g.get("home_team_name_en", "?")
+            away = g.get("away_team_name_en", "?")
+            hs = g.get("home_score", "?")
+            aws = g.get("away_score", "?")
+            date = g.get("local_date", "")[:10]
+            lines.append(f"  {home} {hs}-{aws} {away} ({date})")
+
+    new_ids = set(new_by_id) - set(old_by_id)
+    if new_ids:
+        lines.append(f"New fixtures added: {len(new_ids)}")
+        for gid in sorted(new_ids):
+            g = new_by_id[gid]
+            home = g.get("home_team_name_en", "?")
+            away = g.get("away_team_name_en", "?")
+            date = g.get("local_date", "")[:10]
+            lines.append(f"  {home} vs {away} ({date})")
+
+    return lines
+
+
+def _is_dirty(path: str, repo_dir: str) -> bool:
+    """True if the file has uncommitted changes (modified or untracked)."""
+    import subprocess
+    result = subprocess.run(
+        ["git", "status", "--porcelain", "--", path],
+        cwd=repo_dir, capture_output=True, text=True,
+    )
+    return bool(result.stdout.strip())
+
+
+def commit_data_files() -> None:
+    """Commit any dirty data files (game cache + rank snapshot) in one commit.
+
+    The game-change details from the most recent fetch and a rank-update note
+    are included in the commit message when the respective files have changed.
+    Safe to call unconditionally — it no-ops when nothing is dirty.
+    """
     import os
     import subprocess
     import config
 
-    old_by_id = {g.get("id"): g for g in old_games}
-    new_by_id = {g.get("id"): g for g in new_games}
+    global _PENDING_GAME_LINES
+    repo_dir = os.path.dirname(os.path.abspath(config.LOCAL_JSON_PATH))
 
-    lines = []
+    paths: list[str] = []
+    lines: list[str] = []
 
-    if not old_games:
-        lines.append(f"Initial cache: {len(new_games)} games")
-    else:
-        newly_finished = [
-            g for gid, g in new_by_id.items()
-            if is_finished(g) and not is_finished(old_by_id.get(gid, {}))
-        ]
-        if newly_finished:
-            lines.append("Newly finished:")
-            for g in newly_finished:
-                home = g.get("home_team_name_en", "?")
-                away = g.get("away_team_name_en", "?")
-                hs = g.get("home_score", "?")
-                aws = g.get("away_score", "?")
-                date = g.get("local_date", "")[:10]
-                lines.append(f"  {home} {hs}-{aws} {away} ({date})")
+    if _is_dirty(config.LOCAL_JSON_PATH, repo_dir):
+        paths.append(config.LOCAL_JSON_PATH)
+        lines.extend(_PENDING_GAME_LINES or ["Updated game data"])
+    if _is_dirty(config.RANK_SNAPSHOT_PATH, repo_dir):
+        paths.append(config.RANK_SNAPSHOT_PATH)
+        lines.append("Rankings snapshot updated")
 
-        new_ids = set(new_by_id) - set(old_by_id)
-        if new_ids:
-            lines.append(f"New fixtures added: {len(new_ids)}")
-            for gid in sorted(new_ids):
-                g = new_by_id[gid]
-                home = g.get("home_team_name_en", "?")
-                away = g.get("away_team_name_en", "?")
-                date = g.get("local_date", "")[:10]
-                lines.append(f"  {home} vs {away} ({date})")
-
-    if not lines:
+    _PENDING_GAME_LINES = []
+    if not paths:
         return
 
     msg = (
-        "Update sampresp.json from live API\n\n"
+        "Update fantasy data\n\n"
         + "\n".join(lines)
         + "\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
     )
-    repo_dir = os.path.dirname(os.path.abspath(config.LOCAL_JSON_PATH))
     try:
-        subprocess.run(["git", "add", config.LOCAL_JSON_PATH], cwd=repo_dir, check=True, capture_output=True)
+        subprocess.run(["git", "add", "--", *paths], cwd=repo_dir, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", msg], cwd=repo_dir, check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
         print(f"⚠️  git auto-commit failed: {e.stderr.decode().strip() if e.stderr else e}")
