@@ -384,6 +384,66 @@ def build_contender_timeline(games: list[dict], contender: str) -> dict:
     }
 
 
+def build_value_report(games: list[dict], leaderboard_rows: "list[dict] | None" = None) -> list[dict]:
+    """Returns value-for-money data for all contenders.
+
+    Each item in the returned list contains per-team pts vs auction price,
+    sorted internally by pts/M descending. The list is ordered by leaderboard
+    rank when leaderboard_rows is provided, otherwise by overall pts/M desc.
+    """
+    stats, team_award_pts, contender_dh_pts, _, _ = _build_stats(games)
+
+    result = []
+    for contender, team_ids in config.CONTENDERS.items():
+        prices = config.AUCTION_PRICES.get(contender, {})
+        dh_id = config.DARK_HORSE.get(contender, "")
+        dh_pts = contender_dh_pts.get(contender, 0.0)
+
+        team_rows = []
+        total_pts = 0.0
+        total_spent = 0
+
+        for tid in team_ids:
+            s = stats[tid]
+            award_pts = team_award_pts.get(tid, 0.0)
+            pts = round(s.match_pts + s.goal_pts + s.qualify_pts + s.knockout_pts + award_pts, 2)
+            price = prices.get(tid, 0)
+            pts_per_m = round(pts / price, 3) if price > 0 else 0.0
+            total_pts += pts
+            total_spent += price
+            team_rows.append({
+                "id": tid,
+                "name": display_name_for_id(tid) or tid,
+                "tier": _tier(tid),
+                "price": price,
+                "pts": pts,
+                "pts_per_m": pts_per_m,
+                "is_dark_horse": tid == dh_id,
+            })
+
+        team_rows.sort(key=lambda r: r["pts_per_m"], reverse=True)
+        total_pts = round(total_pts, 2)
+        overall_pts_per_m = round(total_pts / total_spent, 3) if total_spent > 0 else 0.0
+
+        result.append({
+            "user": contender,
+            "total_pts": total_pts,
+            "total_spent": total_spent,
+            "budget_remaining": config.BUDGETS.get(contender, 0),
+            "dh_pts": round(dh_pts, 2),
+            "pts_per_m": overall_pts_per_m,
+            "teams": team_rows,
+        })
+
+    if leaderboard_rows:
+        rank_order = {r["user"]: i for i, r in enumerate(leaderboard_rows)}
+        result.sort(key=lambda r: rank_order.get(r["user"], 999))
+    else:
+        result.sort(key=lambda r: r["pts_per_m"], reverse=True)
+
+    return result
+
+
 _SNAPSHOT_PATH = pathlib.Path(config.RANK_SNAPSHOT_PATH)
 
 

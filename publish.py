@@ -25,7 +25,7 @@ import httpx
 
 import config
 from games_client import fetch_games, commit_data_files
-from scoring import build_leaderboard, build_user_report, load_rank_snapshot, save_rank_snapshot, build_contender_timeline
+from scoring import build_leaderboard, build_user_report, load_rank_snapshot, save_rank_snapshot, build_contender_timeline, build_value_report
 
 _FIND_GROUPS = pathlib.Path(__file__).parent / "whatsapp_sender" / "find_groups.js"
 
@@ -178,6 +178,43 @@ def format_all_progressive(leaderboard_rows: list[dict], games: list[dict]) -> s
     return "\n".join(blocks)
 
 
+def format_value_report(value_rows: list[dict]) -> str:
+    tier_emoji = {1: "🔴", 2: "🟡", 3: "🟢", 4: "🔵"}
+    divider = "━" * 40
+    blocks = ["💰 FIFA Fantasy 2026 — Value for Money 💰"]
+
+    for row in value_rows:
+        blocks.append(f"\n{divider}")
+        blocks.append(
+            f"{row['user']} — {row['total_pts']:g} pts | {row['total_spent']}M spent"
+            f" | {row['pts_per_m']:.3f} pts/M  |  Budget left: {row['budget_remaining']}M"
+        )
+        blocks.append(divider)
+
+        teams = row["teams"]
+        best_idx = 0
+        worst_idx = len(teams) - 1
+
+        for i, t in enumerate(teams):
+            em = tier_emoji.get(t["tier"], "⭐")
+            markers = []
+            if i == best_idx:
+                markers.append("✅ Best value")
+            if i == worst_idx and worst_idx != best_idx:
+                markers.append("❌ Worst value")
+            if t["is_dark_horse"]:
+                dh_pts = row["dh_pts"]
+                dh_tag = f"+{dh_pts:g} pts" if dh_pts > 0 else "not triggered yet"
+                markers.append(f"⭐ Dark Horse ({dh_tag})")
+            marker_str = "  " + "  ".join(markers) if markers else ""
+            blocks.append(
+                f"  {em} {t['name']:<20} T{t['tier']}  {t['price']:3}M"
+                f"  {t['pts']:5.1f} pts  {t['pts_per_m']:.3f} pts/M{marker_str}"
+            )
+
+    return "\n".join(blocks)
+
+
 def _daemon_down(exc: Exception) -> None:
     print(f"❌ Can't reach the WhatsApp daemon at {config.WHATSAPP_DAEMON_URL} ({exc}).")
     print("   Start it with launchd:")
@@ -252,6 +289,23 @@ def main() -> None:
     if "--all" in args:
         rows, warnings, _ = build_leaderboard(games)
         print(format_all_progressive(rows, games))
+        if warnings:
+            print("\n⚠️ " + "; ".join(warnings))
+        return
+
+    if "--value" in args:
+        idx = args.index("--value")
+        user_filter = args[idx + 1] if idx + 1 < len(args) and not args[idx + 1].startswith("--") else None
+        rows, warnings, _ = build_leaderboard(games)
+        value_rows = build_value_report(games, leaderboard_rows=rows)
+        if user_filter:
+            matched = [r for r in value_rows if r["user"].lower() == user_filter.lower()]
+            if not matched:
+                available = ", ".join(r["user"] for r in value_rows)
+                print(f"❌ '{user_filter}' not found. Available: {available}")
+                sys.exit(1)
+            value_rows = matched
+        print(format_value_report(value_rows))
         if warnings:
             print("\n⚠️ " + "; ".join(warnings))
         return
