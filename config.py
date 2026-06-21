@@ -173,6 +173,8 @@ AUCTION_PRICES: dict[str, dict[str, int]] = {
 # This lets send_group.js use getChatById() (instant) instead of getChats()
 # (slow with many groups). To find it: run publish.py --find-groups
 WHATSAPP_GROUP_ID: str = "918428058576-1528206449@g.us"
+# prod -> 918428058576-1528206449@g.us
+# test -> 120363029166681370@g.us
 
 # Local daemon that holds a warm WhatsApp session (see whatsapp_sender/daemon.js).
 # publish.py POSTs the message here instead of cold-starting Node on every send.
