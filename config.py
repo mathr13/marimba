@@ -85,11 +85,11 @@ TEAM_DISPLAY_OVERRIDES: dict[str, str] = {
 # "local"  → read from LOCAL_JSON_PATH (default, avoids hitting the live API)
 # "api"    → fetch live from https://worldcup26.ir/get/games
 DATA_SOURCE: str = "local"
-LOCAL_JSON_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/sampresp.json"
-MATCH_TIMES_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/match_times.json"
-TEAMS_JSON_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/teams.json"
-RANK_SNAPSHOT_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/rank_snapshot.json"
-SYNC_STATUS_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/sync_status.json"
+LOCAL_JSON_PATH: str = "/Users/shishirmathur/TProjects/fifa_fantasy/sampresp.json"
+MATCH_TIMES_PATH: str = "/Users/shishirmathur/TProjects/fifa_fantasy/match_times.json"
+TEAMS_JSON_PATH: str = "/Users/shishirmathur/TProjects/fifa_fantasy/teams.json"
+RANK_SNAPSHOT_PATH: str = "/Users/shishirmathur/TProjects/fifa_fantasy/rank_snapshot.json"
+SYNC_STATUS_PATH: str = "/Users/shishirmathur/TProjects/fifa_fantasy/sync_status.json"
 
 # ---------------------------------------------------------------------------
 # Scoring constants

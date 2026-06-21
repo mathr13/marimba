@@ -20,11 +20,11 @@
     <key>ProgramArguments</key>
     <array>
         <string>/opt/homebrew/bin/node</string>
-        <string>/Users/shishirmathur/Downloads/fifa_fantasy/whatsapp_sender/daemon.js</string>
+        <string>/Users/shishirmathur/TProjects/fifa_fantasy/whatsapp_sender/daemon.js</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/shishirmathur/Downloads/fifa_fantasy/whatsapp_sender</string>
+    <string>/Users/shishirmathur/TProjects/fifa_fantasy/whatsapp_sender</string>
 
     <key>RunAtLoad</key>
     <true/>
@@ -32,10 +32,8 @@
     <key>KeepAlive</key>
     <true/>
 
-    <!-- Log MUST live outside ~/Downloads, ~/Documents, ~/Desktop: those are
-         TCC-protected and launchd (a separate responsible process) can't create
-         a file there, which makes the job fail instantly with EX_CONFIG (78).
-         ~/Library/Logs is the correct, non-protected, persistent location. -->
+    <!-- Log MUST live outside TCC-protected dirs (~/Downloads, ~/Documents,
+         ~/Desktop). ~/Library/Logs is the correct, non-protected location. -->
     <key>StandardOutPath</key>
     <string>/Users/shishirmathur/Library/Logs/fifafantasy-whatsappd.log</string>
 

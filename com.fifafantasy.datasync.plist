@@ -18,8 +18,8 @@
   Force a manual run (for testing):
     launchctl kickstart -k gui/$UID/com.fifafantasy.datasync
 
-  NOTE: launchd does not read your shell profile, so ProgramArguments uses an
-  absolute path to python3. Update it if `which python3` differs on your machine.
+  NOTE: The project lives in ~/TProjects/ (not TCC-protected), so launchd can
+  access it directly without needing Full Disk Access grants.
 -->
 <plist version="1.0">
 <dict>
@@ -29,11 +29,11 @@
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/python3</string>
-        <string>/Users/shishirmathur/Downloads/fifa_fantasy/sync_data.py</string>
+        <string>/Users/shishirmathur/TProjects/fifa_fantasy/sync_data.py</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/shishirmathur/Downloads/fifa_fantasy</string>
+    <string>/Users/shishirmathur/TProjects/fifa_fantasy</string>
 
     <key>RunAtLoad</key>
     <true/>
