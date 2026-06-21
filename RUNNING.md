@@ -167,3 +167,47 @@ launchctl kickstart -k gui/$UID/com.fifafantasy.datasync
 > `~/Downloads`, `~/Documents`, and `~/Desktop` (TCC protection). It goes to
 > `~/Library/Logs/fifafantasy-datasync.log`. If you move the project, update the
 > absolute paths in `com.fifafantasy.datasync.plist`.
+
+### Syncing while the Mac is asleep (one-time setup)
+
+By default, the `LaunchAgent` runs when the Mac is awake but does nothing during
+deep sleep. To keep data fresh overnight, the syncer re-arms a `pmset` wake event
+after each run so the Mac wakes ~3 hours later. This requires two one-time setup
+steps (both need `sudo`):
+
+**1. NOPASSWD sudoers rule** — lets the background agent drive `pmset` silently
+(without a password prompt the agent can't answer):
+
+```bash
+echo 'shishirmathur ALL=(root) NOPASSWD: /usr/bin/pmset' | sudo tee /etc/sudoers.d/fifafantasy-pmset
+sudo chmod 440 /etc/sudoers.d/fifafantasy-pmset
+sudo visudo -c        # validate syntax before trusting it
+```
+
+> **Security note:** the rule is scoped to the single binary `/usr/bin/pmset`
+> (power scheduling only). It grants no other root access.
+
+**2. Static daily backstop** — a `pmset repeat` wake at a fixed daily time that
+restarts the rolling 3h chain if it ever breaks (e.g. Mac powered off through a
+scheduled wake):
+
+```bash
+sudo pmset repeat wakeorpoweron MTWRFSU 03:00:00
+```
+
+Pick any convenient overnight time. With this in place, even a broken chain
+self-heals within 24 hours.
+
+**Verify the schedule any time:**
+
+```bash
+pmset -g sched
+```
+
+After the next agent run you should see a single one-off `wakeorpoweron` event
+~3h out, plus the daily `repeat` entry.
+
+> **Caveat:** `wakeorpoweron` reliably wakes from **sleep**. Powering on from a
+> full shutdown via RTC is not guaranteed on laptops (especially on battery). Treat
+> overnight freshness as "best-effort while sleeping," fully guaranteed once the Mac
+> is awake.
