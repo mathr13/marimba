@@ -18,5 +18,8 @@ whatsapp_sender/.wwebjs_auth/
 whatsapp_sender/daemon.log
 *.log
 
+# Operational state (per-machine, regenerated on each sync)
+sync_status.json
+
 # Legacy PyWhatKit artefact
 PyWhatKit_DB.txt

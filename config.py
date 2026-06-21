@@ -89,6 +89,7 @@ LOCAL_JSON_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/sampresp.jso
 MATCH_TIMES_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/match_times.json"
 TEAMS_JSON_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/teams.json"
 RANK_SNAPSHOT_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/rank_snapshot.json"
+SYNC_STATUS_PATH: str = "/Users/shishirmathur/Downloads/fifa_fantasy/sync_status.json"
 
 # ---------------------------------------------------------------------------
 # Scoring constants

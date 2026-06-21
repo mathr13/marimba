@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd user agent for periodic FIFA Fantasy data sync.
+
+  This agent periodically fetches match data from the remote API and updates
+  sampresp.json. If the API is down, it silently fails and will retry on the
+  next interval. The publish workflow reads from sampresp.json, so an API
+  outage never blocks publishing.
+
+  Install:
+    cp com.fifafantasy.datasync.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.fifafantasy.datasync.plist
+
+  Check status:
+    launchctl list | grep datasync
+    tail -f ~/Library/Logs/fifafantasy-datasync.log
+
+  Force a manual run (for testing):
+    launchctl kickstart -k gui/$UID/com.fifafantasy.datasync
+
+  NOTE: launchd does not read your shell profile, so ProgramArguments uses an
+  absolute path to python3. Update it if `which python3` differs on your machine.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.fifafantasy.datasync</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/shishirmathur/Downloads/fifa_fantasy/sync_data.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/shishirmathur/Downloads/fifa_fantasy</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Run every 3 hours (10800 seconds) -->
+    <key>StartInterval</key>
+    <integer>10800</integer>
+
+    <!-- Log output (must live outside ~/Downloads, ~/Documents, ~/Desktop due
+         to TCC protection; launchd cannot create files in those locations). -->
+    <key>StandardOutPath</key>
+    <string>/Users/shishirmathur/Library/Logs/fifafantasy-datasync.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/shishirmathur/Library/Logs/fifafantasy-datasync.log</string>
+</dict>
+</plist>

@@ -126,3 +126,44 @@ python3 publish.py                   # fetch leaderboard and send to the group
 ```
 
 If the daemon isn't running, `publish.py` prints the exact `launchctl` command to start it.
+
+## Periodic data sync (resilience against API downtime)
+
+The leaderboard publishing depends on fresh match data from the remote API. Because that API
+is occasionally unreliable, we decouple the workflow into two independent pieces:
+
+1. **Data syncer** (`sync_data.py`): runs on its own schedule (every 3 hours) and silently
+   fetches match data from the API, updating `sampresp.json` whenever successful. API
+   failures are logged but don't block anything.
+2. **Publisher** (`publish.py`): reads the local cache (`sampresp.json`) and publishes. A
+   100% reliable local read — if the API is down, the publisher still sends the leaderboard
+   using the most recent cached data.
+
+### One-time setup
+
+```bash
+cp com.fifafantasy.datasync.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.fifafantasy.datasync.plist
+```
+
+The syncer now runs every 3 hours, starting immediately (on `RunAtLoad`). On each run, it
+attempts to fetch fresh match data; retries up to 3 times with backoff if the API is
+temporarily down; and updates a local `sync_status.json` file with the success/failure
+result. The publish message includes a "Synced …" timestamp from that file.
+
+Monitor the sync logs:
+
+```bash
+tail -f ~/Library/Logs/fifafantasy-datasync.log
+```
+
+Force a manual run (for testing):
+
+```bash
+launchctl kickstart -k gui/$UID/com.fifafantasy.datasync
+```
+
+> **Note:** like the WhatsApp daemon, the data syncer's log **must** live outside
+> `~/Downloads`, `~/Documents`, and `~/Desktop` (TCC protection). It goes to
+> `~/Library/Logs/fifafantasy-datasync.log`. If you move the project, update the
+> absolute paths in `com.fifafantasy.datasync.plist`.

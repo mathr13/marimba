@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from datetime import datetime
 from typing import Optional
@@ -112,6 +113,89 @@ def _load_local(path: str) -> list[dict]:
     return data
 
 
+def _atomic_write_json(path: str, data: dict) -> None:
+    """Write JSON atomically: write to .tmp, then rename to avoid partial reads."""
+    import config
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
+    os.replace(tmp_path, path)
+
+
+def _write_sync_status(success: bool, error: "str | None" = None) -> None:
+    """Update sync_status.json with the latest attempt and success times."""
+    import config
+    now_iso = datetime.now().isoformat()
+
+    status = {"last_attempt": now_iso}
+
+    # Preserve last_success if it exists and this attempt failed
+    if os.path.exists(config.SYNC_STATUS_PATH):
+        try:
+            with open(config.SYNC_STATUS_PATH, encoding="utf-8") as f:
+                existing = json.load(f)
+            if not success and "last_success" in existing:
+                status["last_success"] = existing["last_success"]
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    if success:
+        status["last_success"] = now_iso
+        status["last_error"] = None
+    else:
+        status["last_error"] = error
+
+    with open(config.SYNC_STATUS_PATH, "w", encoding="utf-8") as f:
+        json.dump(status, f, ensure_ascii=False, indent=2)
+
+
+def sync_once(retries: int = 3, delay: int = 5) -> bool:
+    """Resilient one-shot API fetch: try up to `retries` times with backoff.
+
+    Returns True on success (data fetched, sampresp.json updated, commit done).
+    Returns False on failure after all retries (never raises).
+    Writes sync_status.json on each attempt.
+    """
+    import subprocess
+    import config
+
+    for attempt in range(1, retries + 1):
+        try:
+            result = subprocess.run(
+                ["curl", "-sf", "-A", "Mozilla/5.0 (compatible; FIFAFantasyBot/1.0)", GAMES_URL],
+                capture_output=True,
+                timeout=20,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(f"curl failed (exit {result.returncode}): {result.stderr.decode()}")
+
+            data = json.loads(result.stdout)
+            new_games = data["games"] if isinstance(data, dict) and "games" in data else data
+
+            try:
+                old_games = _load_local(config.LOCAL_JSON_PATH)
+            except (FileNotFoundError, json.JSONDecodeError, KeyError):
+                old_games = []
+
+            _atomic_write_json(config.LOCAL_JSON_PATH, data)
+            global _PENDING_GAME_LINES
+            _PENDING_GAME_LINES = _describe_game_changes(old_games, new_games)
+            commit_data_files()
+
+            _write_sync_status(success=True)
+            return True
+
+        except Exception as e:
+            if attempt < retries:
+                import time
+                time.sleep(delay)
+            else:
+                _write_sync_status(success=False, error=str(e))
+                return False
+
+    return False
+
+
 def _fetch_api() -> list[dict]:
     import config
     headers = {"User-Agent": "Mozilla/5.0 (compatible; FIFAFantasyBot/1.0)"}
@@ -123,8 +207,7 @@ def _fetch_api() -> list[dict]:
         old_games = _load_local(config.LOCAL_JSON_PATH)
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         old_games = []
-    with open(config.LOCAL_JSON_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
+    _atomic_write_json(config.LOCAL_JSON_PATH, data)
     # Defer the commit: stash the human-readable game diff so commit_data_files()
     # can bundle it together with the rank snapshot in a single commit at the end
     # of the run (after the leaderboard has been published and the snapshot saved).
@@ -134,27 +217,16 @@ def _fetch_api() -> list[dict]:
 
 
 def refresh_local_cache() -> None:
-    import subprocess
     import config
-    result = subprocess.run(
-        ["curl", "-sf", "-A", "Mozilla/5.0 (compatible; FIFAFantasyBot/1.0)", GAMES_URL],
-        capture_output=True,
-        timeout=20,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"curl failed (exit {result.returncode}): {result.stderr.decode()}")
-    data = json.loads(result.stdout)
-    new_games = data["games"] if isinstance(data, dict) and "games" in data else data
-    try:
-        old_games = _load_local(config.LOCAL_JSON_PATH)
-    except (FileNotFoundError, json.JSONDecodeError, KeyError):
-        old_games = []
-    with open(config.LOCAL_JSON_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2, sort_keys=True)
-    global _PENDING_GAME_LINES
-    _PENDING_GAME_LINES = _describe_game_changes(old_games, new_games)
-    commit_data_files()
-    print(f"Updated {config.LOCAL_JSON_PATH} with {len(new_games)} games.")
+    success = sync_once(retries=3, delay=5)
+    if success:
+        try:
+            new_games = _load_local(config.LOCAL_JSON_PATH)
+            print(f"✅ Updated {config.LOCAL_JSON_PATH} with {len(new_games)} games.")
+        except Exception:
+            print(f"✅ Updated {config.LOCAL_JSON_PATH}.")
+    else:
+        print(f"❌ Failed to sync after retries. Check {config.LOCAL_JSON_PATH} for last known state.")
 
 
 # Human-readable summary of the most recent game-data change, awaiting commit.

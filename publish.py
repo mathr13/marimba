@@ -35,6 +35,16 @@ _WARMUP_RETRIES = 5
 _WARMUP_DELAY = 3  # seconds between retries
 
 
+def _load_sync_status() -> "dict | None":
+    """Load sync_status.json, return None if missing or invalid."""
+    import json
+    try:
+        with open(config.SYNC_STATUS_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, IOError):
+        return None
+
+
 def _rank_delta_prefix(delta: "int | None") -> str:
     if delta is None:
         return "🆕 "
@@ -76,6 +86,15 @@ def format_leaderboard(
         lines.append(f"_Data up to: {home} {hs}-{aws} {away} ({date_fmt})_")
     else:
         lines.append(f"_Updated {datetime.now().strftime('%d %b %Y, %I:%M %p')}_")
+
+    # Add sync timestamp from the periodic data syncer
+    sync_status = _load_sync_status()
+    if sync_status and sync_status.get("last_success"):
+        try:
+            synced_dt = datetime.fromisoformat(sync_status["last_success"])
+            lines.append(f"_Synced {synced_dt.strftime('%d %b %Y, %I:%M %p')}_")
+        except ValueError:
+            pass
     if warnings:
         lines.append("")
         lines.append("⚠️ " + "; ".join(warnings))
