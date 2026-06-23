@@ -3,7 +3,9 @@
   launchd user agent for periodic FIFA Fantasy data sync.
 
   This agent periodically fetches match data from the remote API and updates
-  sampresp.json. If the API is down, it silently fails and will retry on the
+  sampresp.json. The cadence is time-of-day aware: every 30 minutes during the
+  22:00-11:00 IST match window, every 3 hours otherwise (decided inside
+  sync_data.py). If the API is down, it silently fails and will retry on the
   next interval. The publish workflow reads from sampresp.json, so an API
   outage never blocks publishing.
 
@@ -38,9 +40,13 @@
     <key>RunAtLoad</key>
     <true/>
 
-    <!-- Run every 3 hours (10800 seconds) -->
+    <!-- Tick every 1 hour (3600 seconds). The script (sync_data.py) decides whether
+         to actually fetch based on a time-of-day window (every 30 min during the
+         22:00-11:00 IST match window, every 3 hours otherwise) and re-arms the
+         matching pmset wake. The effective cadence is limited by launchd ticks
+         (1h), so hot-window syncs will happen at most once per hour while awake. -->
     <key>StartInterval</key>
-    <integer>10800</integer>
+    <integer>3600</integer>
 
     <!-- Log output (must live outside ~/Downloads, ~/Documents, ~/Desktop due
          to TCC protection; launchd cannot create files in those locations). -->

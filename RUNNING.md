@@ -132,9 +132,10 @@ If the daemon isn't running, `publish.py` prints the exact `launchctl` command t
 The leaderboard publishing depends on fresh match data from the remote API. Because that API
 is occasionally unreliable, we decouple the workflow into two independent pieces:
 
-1. **Data syncer** (`sync_data.py`): runs on its own schedule (every 3 hours) and silently
-   fetches match data from the API, updating `sampresp.json` whenever successful. API
-   failures are logged but don't block anything.
+1. **Data syncer** (`sync_data.py`): runs on a **time-of-day-aware schedule** — every 30
+   minutes during the 22:00–11:00 IST match window (when most games finish), every 3 hours
+   the rest of the day — and silently fetches match data from the API, updating
+   `sampresp.json` whenever successful. API failures are logged but don't block anything.
 2. **Publisher** (`publish.py`): reads the local cache (`sampresp.json`) and publishes. A
    100% reliable local read — if the API is down, the publisher still sends the leaderboard
    using the most recent cached data.
@@ -146,10 +147,16 @@ cp com.fifafantasy.datasync.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.fifafantasy.datasync.plist
 ```
 
-The syncer now runs every 3 hours, starting immediately (on `RunAtLoad`). On each run, it
-attempts to fetch fresh match data; retries up to 3 times with backoff if the API is
-temporarily down; and updates a local `sync_status.json` file with the success/failure
-result. The publish message includes a "Synced …" timestamp from that file.
+launchd ticks the syncer every 30 minutes (the finest cadence), starting immediately (on
+`RunAtLoad`). Each tick, `sync_data.py` decides whether to actually fetch based on the
+current time window — every 30 min during the 22:00–11:00 IST match window, every 3 hours
+otherwise — by comparing against `last_attempt` in `sync_status.json` (so cold-window ticks
+don't hammer the API). When it does fetch, it retries up to 3 times with backoff if the API
+is temporarily down and updates `sync_status.json` with the success/failure result. The
+publish message includes a "Synced …" timestamp from that file.
+
+To change the window hours or cadence, edit the constants at the top of `sync_data.py`
+(`HOT_START_HOUR`, `HOT_END_HOUR`, `HOT_INTERVAL_MIN`, `COLD_INTERVAL_MIN`).
 
 Monitor the sync logs:
 
@@ -171,8 +178,11 @@ launchctl kickstart -k gui/$UID/com.fifafantasy.datasync
 ### Syncing while the Mac is asleep (one-time setup)
 
 By default, the `LaunchAgent` runs when the Mac is awake but does nothing during
-deep sleep. To keep data fresh overnight, the syncer re-arms a `pmset` wake event
-after each run so the Mac wakes ~3 hours later. This requires two one-time setup
+deep sleep. **This matters most for the 22:00–11:00 IST match window — it's
+overnight, exactly when the Mac is asleep and when we want 30-minute syncs.** To
+keep data fresh then, the syncer re-arms a `pmset` wake event after each run at the
+next desired wake time (30 min out in the hot window, up to 3 hours out otherwise),
+so the Mac wakes from sleep to run the next sync. This requires two one-time setup
 steps (both need `sudo`):
 
 **1. NOPASSWD sudoers rule** — lets the background agent drive `pmset` silently
@@ -188,15 +198,16 @@ sudo visudo -c        # validate syntax before trusting it
 > (power scheduling only). It grants no other root access.
 
 **2. Static daily backstop** — a `pmset repeat` wake at a fixed daily time that
-restarts the rolling 3h chain if it ever breaks (e.g. Mac powered off through a
+restarts the rolling chain if it ever breaks (e.g. Mac powered off through a
 scheduled wake):
 
 ```bash
-sudo pmset repeat wakeorpoweron MTWRFSU 03:00:00
+sudo pmset repeat wakeorpoweron MTWRFSU 22:00:00
 ```
 
-Pick any convenient overnight time. With this in place, even a broken chain
-self-heals within 24 hours.
+Set this to the **start of the match window (22:00 IST)** so a broken chain
+self-heals right when the frequent-sync window begins, rather than mid-day. With
+this in place, even a fully broken chain recovers within 24 hours.
 
 **Verify the schedule any time:**
 
@@ -204,8 +215,9 @@ self-heals within 24 hours.
 pmset -g sched
 ```
 
-After the next agent run you should see a single one-off `wakeorpoweron` event
-~3h out, plus the daily `repeat` entry.
+After the next agent run you should see a single one-off `wakeorpoweron` event at
+the next desired wake time (≤30 min out during the match window, up to 3h out
+otherwise), plus the daily `repeat` entry.
 
 > **Caveat:** `wakeorpoweron` reliably wakes from **sleep**. Powering on from a
 > full shutdown via RTC is not guaranteed on laptops (especially on battery). Treat
