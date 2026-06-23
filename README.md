@@ -32,8 +32,8 @@ worldcup26.ir API
 | `config.py` | All settings: player rosters, team tiers, scoring constants, dark horse picks, WhatsApp config — everything is keyed by **team id** (see [Team identity](#team-identity)) |
 | `teams.json` | Authoritative team registry — an id-keyed map (`{ "17": { "name_en": "Germany", … } }`) of all 48 World Cup teams |
 | `games_client.py` | Fetches match data from the API (or a local JSON file); sorts games — finished first, then chronological; matches games to teams by id |
-| `scoring.py` | Calculates points and builds the ranked leaderboard, per-user breakdowns, and progressive timelines |
-| `publish.py` | Formats the message and sends it via the daemon; supports `--dry-run`, `--test`, `--daemon-status`, `--user`, `--all` |
+| `scoring.py` | Calculates points and builds the ranked leaderboard, per-user breakdowns, progressive timelines, and the value-for-money report |
+| `publish.py` | Formats the message and sends it via the daemon; supports `--dry-run`, `--test`, `--daemon-status`, `--user`, `--all`, `--value` |
 | `match_times.json` | Accurate IST kickoff times (joined to games by team id) overlaid on the API's `local_date` |
 | `build_match_times.py` | One-time/refresh script that regenerates `match_times.json` from ESPN's schedule API |
 | `TEAM_MAPPING.md` | Human-readable mapping report (id · FIFA code · name · tier · owner) for cross-verifying `config.py` |
@@ -93,6 +93,8 @@ Edit `config.py` (all team references are **team ids** from `teams.json` — loo
 - **`CONTENDERS`** — map each player's name to their list of team ids
 - **`DARK_HORSE`** — each player's chosen dark horse team id (must be Tier 3 or 4)
 - **`TEAM_TIERS`** — team id → tier (1–4), drives goal multipliers and qualify bonuses
+- **`AUCTION_PRICES`** — per contender, the price (in M) paid for each owned team id; powers the value-for-money report
+- **`BUDGETS`** — each player's remaining auction budget (in M), shown in the value-for-money report
 - **`WHATSAPP_GROUP_ID`** — the `…@g.us` JID of your WhatsApp group (run `python3 publish.py --find-groups` to find it)
 
 ### 4. First-time WhatsApp login (one-time QR scan)
@@ -132,11 +134,31 @@ python3 publish.py --daemon-status  # check whether the WhatsApp session is read
 python3 publish.py --find-groups    # list all WhatsApp groups and their JIDs
 python3 publish.py --user <name>    # print one contender's per-team points breakdown
 python3 publish.py --all            # print every contender's progressive points timeline (audit view)
+python3 publish.py --value          # print every contender's value-for-money report (pts per auction M)
+python3 publish.py --value <name>   # print just one contender's value-for-money report
 ```
 
 The leaderboard shows **rank-movement indicators** versus the previous send (🟢▲ up, 🔴▼ down, ➡️ unchanged, 🆕 first appearance). Previous ranks are persisted in `rank_snapshot.json`, which is updated only on a real send (not on `--dry-run`).
 
-`--user` and `--all` print to stdout only — they never send to WhatsApp — and are meant for auditing how points were calculated (every match event with its running cumulative total).
+`--user`, `--all`, and `--value` print to stdout only — they never send to WhatsApp — and are meant for auditing how points were calculated (every match event with its running cumulative total).
+
+### Value for Money report
+
+`--value` shows **how much each team is worth** — every team's accumulated fantasy points measured against the auction price the contender paid for it, expressed as **pts/M** (points per million spent). For each contender it lists every owned team sorted by pts/M, flags the **✅ best value** and **❌ worst value** picks, marks the **⭐ dark horse**, and shows the contender's totals (points, money spent, overall pts/M, and budget remaining).
+
+Auction prices and budgets are configured per contender in `config.py` (`AUCTION_PRICES` keyed by team id, and `BUDGETS`). Example:
+
+```
+💰 FIFA Fantasy 2026 — Value for Money 💰
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Tushar — 37 pts | 180M spent | 0.206 pts/M  |  Budget left: 20M
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  🔵 Morocco              T4   15M   18.0 pts  1.200 pts/M  ✅ Best value  ⭐ Dark Horse (+8 pts)
+  🔴 Brazil               T1   90M   14.0 pts  0.156 pts/M
+  🟡 Croatia              T2   45M    5.0 pts  0.111 pts/M  ❌ Worst value
+...
+```
 
 ### Example output
 
