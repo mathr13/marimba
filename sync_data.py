@@ -33,7 +33,7 @@ import sys
 from datetime import datetime, timedelta
 
 import config
-from games_client import sync_once
+from games_client import append_sync_log, sync_once
 
 # Hot window (IST, the Mac's timezone): most matches finish between these hours.
 # The window wraps past midnight, so "hot" means hour >= START or hour < END.
@@ -141,6 +141,7 @@ def main() -> None:
     else:
         mins = HOT_INTERVAL_MIN if _is_hot(now) else COLD_INTERVAL_MIN
         print(f"⏭️  Skipping — within the {mins}-min {window}-window cadence.")
+        append_sync_log("skipped")
 
     # Re-arm the next wake regardless of whether we synced so the chain continues
     # even on a bad API day or a skipped tick.

@@ -20,6 +20,7 @@ whatsapp_sender/daemon.log
 
 # Operational state (per-machine, regenerated on each sync)
 sync_status.json
+sync_log.jsonl
 
 # Legacy PyWhatKit artefact
 PyWhatKit_DB.txt

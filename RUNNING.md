@@ -164,6 +164,13 @@ Monitor the sync logs:
 tail -f ~/Library/Logs/fifafantasy-datasync.log
 ```
 
+Every tick also appends a minimal record to **`sync_log.jsonl`** in the project directory — one JSON object per line with `ts`, `status` (`success`/`failure`/`skipped`), and `error`. This is the history log; `sync_status.json` still holds only the latest attempt and drives the "Synced …" publish stamp.
+
+```bash
+tail -f sync_log.jsonl          # live view
+cat sync_log.jsonl              # full history
+```
+
 Force a manual run (for testing):
 
 ```bash

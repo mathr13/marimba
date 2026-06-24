@@ -90,6 +90,7 @@ MATCH_TIMES_PATH: str = "/Users/shishirmathur/TProjects/fifa_fantasy/match_times
 TEAMS_JSON_PATH: str = "/Users/shishirmathur/TProjects/fifa_fantasy/teams.json"
 RANK_SNAPSHOT_PATH: str = "/Users/shishirmathur/TProjects/fifa_fantasy/rank_snapshot.json"
 SYNC_STATUS_PATH: str = "/Users/shishirmathur/TProjects/fifa_fantasy/sync_status.json"
+SYNC_LOG_PATH: str = "/Users/shishirmathur/TProjects/fifa_fantasy/sync_log.jsonl"
 
 # ---------------------------------------------------------------------------
 # Scoring constants

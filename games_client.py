@@ -122,6 +122,18 @@ def _atomic_write_json(path: str, data: dict) -> None:
     os.replace(tmp_path, path)
 
 
+def append_sync_log(status: str, error: "str | None" = None) -> None:
+    """Append one minimal record to the JSONL sync history. Best-effort: never
+    raises so telemetry can't break a sync."""
+    import config
+    record = {"ts": datetime.now().isoformat(), "status": status, "error": error}
+    try:
+        with open(config.SYNC_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
 def _write_sync_status(success: bool, error: "str | None" = None) -> None:
     """Update sync_status.json with the latest attempt and success times."""
     import config
@@ -183,6 +195,7 @@ def sync_once(retries: int = 3, delay: int = 5) -> bool:
             commit_data_files()
 
             _write_sync_status(success=True)
+            append_sync_log("success")
             return True
 
         except Exception as e:
@@ -191,6 +204,7 @@ def sync_once(retries: int = 3, delay: int = 5) -> bool:
                 time.sleep(delay)
             else:
                 _write_sync_status(success=False, error=str(e))
+                append_sync_log("failure", error=str(e))
                 return False
 
     return False
