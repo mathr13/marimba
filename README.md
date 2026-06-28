@@ -136,13 +136,14 @@ python3 publish.py --user <name>    # print one contender's per-team points brea
 python3 publish.py --all            # print every contender's progressive points timeline (audit view)
 python3 publish.py --value          # print every contender's value-for-money report (pts per auction M)
 python3 publish.py --value <name>   # print just one contender's value-for-money report
-python3 publish.py --teams          # print tier-wise rankings of every team's performance
+python3 publish.py --teams          # publish tier-wise rankings of every team's performance
+python3 publish.py --teams --dry-run # print the team rankings without sending
 ```
 
 The leaderboard shows **rank-movement indicators** versus the previous send (🟢▲ up, 🔴▼ down, ➡️ unchanged, 🆕 first appearance). Previous ranks are persisted in `rank_snapshot.json`, which is updated only on a real send (not on `--dry-run`).
 
 `--user`, `--all`, and `--value` print to stdout only — they never send to WhatsApp — and are meant for auditing how points were calculated (every match event with its running cumulative total).
-`--teams` is also stdout-only. It ranks every owned team inside its tier by fantasy points, with record, goals for/against, goal difference, owner, scoring breakdown, and dark-horse status.
+`--teams` publishes a WhatsApp report by default, or prints only with `--dry-run`. It ranks every owned team inside its tier by fantasy points, with record, goals for/against, goal difference, owner, scoring breakdown, and dark-horse status.
 
 ### Value for Money report
 

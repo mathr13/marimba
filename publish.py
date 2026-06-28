@@ -14,7 +14,7 @@ Usage:
     python3 publish.py --find-groups         # list all groups and their JIDs (for config setup)
     python3 publish.py --user <name> [--dry-run] # show per-team breakdown for a specific user
     python3 publish.py --all                 # show ranked progressive timeline for all contenders
-    python3 publish.py --teams               # show tier-wise team performance rankings
+    python3 publish.py --teams [--dry-run]   # publish tier-wise team performance rankings
 """
 import sys
 import time
@@ -387,9 +387,16 @@ def main() -> None:
     if "--teams" in args:
         _, warnings, _ = build_leaderboard(games)
         tier_rows = build_team_tier_report(games)
-        print(format_team_tier_report(tier_rows))
+        message = format_team_tier_report(tier_rows)
         if warnings:
-            print("\n⚠️ " + "; ".join(warnings))
+            message += "\n\n⚠️ " + "; ".join(warnings)
+        print(message)
+        print()
+        if "--dry-run" in args:
+            print("[dry-run] Not sending.")
+            return
+        _send(message)
+        commit_data_files()
         return
 
     # Check for --user flag
