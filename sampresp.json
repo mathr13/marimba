@@ -458,14 +458,14 @@
     },
     {
       "_id": "679c9c8a5749c4077500e072",
-      "away_score": "null",
-      "away_scorers": "null",
+      "away_score": "1",
+      "away_scorers": "{\"Aldvr Shvmvrvdvf 10'\"}",
       "away_team_id": "43",
       "away_team_name_en": "Uzbekistan",
       "away_team_name_fa": "ازبکستان",
       "finished": "FALSE",
       "group": "K",
-      "home_score": "null",
+      "home_score": "0",
       "home_scorers": "null",
       "home_team_id": "42",
       "home_team_name_en": "Democratic Republic of the Congo",
@@ -475,7 +475,7 @@
       "matchday": "3",
       "persian_date": "1405-04-06 19:30",
       "stadium_id": "7",
-      "time_elapsed": "notstarted",
+      "time_elapsed": "live",
       "type": "group"
     },
     {
@@ -1420,14 +1420,14 @@
     },
     {
       "_id": "679c9c8a5749c4077500e071",
-      "away_score": "null",
+      "away_score": "0",
       "away_scorers": "null",
       "away_team_id": "41",
       "away_team_name_en": "Portugal",
       "away_team_name_fa": "پرتغال",
       "finished": "FALSE",
       "group": "K",
-      "home_score": "null",
+      "home_score": "0",
       "home_scorers": "null",
       "home_team_id": "44",
       "home_team_name_en": "Colombia",
@@ -1437,7 +1437,7 @@
       "matchday": "3",
       "persian_date": "1405-04-06 19:30",
       "stadium_id": "8",
-      "time_elapsed": "notstarted",
+      "time_elapsed": "live",
       "type": "group"
     },
     {
