@@ -14,6 +14,7 @@ Usage:
     python3 publish.py --find-groups         # list all groups and their JIDs (for config setup)
     python3 publish.py --user <name> [--dry-run] # show per-team breakdown for a specific user
     python3 publish.py --all                 # show ranked progressive timeline for all contenders
+    python3 publish.py --teams               # show tier-wise team performance rankings
 """
 import sys
 import time
@@ -25,7 +26,15 @@ import httpx
 
 import config
 from games_client import fetch_games, commit_data_files
-from scoring import build_leaderboard, build_user_report, load_rank_snapshot, save_rank_snapshot, build_contender_timeline, build_value_report
+from scoring import (
+    build_contender_timeline,
+    build_leaderboard,
+    build_team_tier_report,
+    build_user_report,
+    build_value_report,
+    load_rank_snapshot,
+    save_rank_snapshot,
+)
 
 _FIND_GROUPS = pathlib.Path(__file__).parent / "whatsapp_sender" / "find_groups.js"
 
@@ -234,6 +243,52 @@ def format_value_report(value_rows: list[dict]) -> str:
     return "\n".join(blocks)
 
 
+def format_team_tier_report(tier_rows: list[dict]) -> str:
+    tier_emoji = {1: "🔴", 2: "🟡", 3: "🟢", 4: "🔵"}
+    divider = "━" * 40
+    blocks = ["📈 FIFA Fantasy 2026 — Team Performance by Tier 📈"]
+
+    for group in tier_rows:
+        tier = group["tier"]
+        teams = group["teams"]
+        em = tier_emoji.get(tier, "⭐")
+
+        blocks.append(f"\n{divider}")
+        blocks.append(f"{em} Tier {tier}")
+        blocks.append(divider)
+
+        for team in teams:
+            record = f"{team['wins']}-{team['draws']}-{team['losses']}"
+            goals = f"GF {team['goals_for']} / GA {team['goals_against']} / GD {team['goal_diff']:+d}"
+            markers = []
+            if team["is_dark_horse"]:
+                dh_pts = team["dark_horse_pts"]
+                dh_tag = f"+{dh_pts:g} pts" if dh_pts > 0 else "not triggered yet"
+                markers.append(f"⭐ Dark Horse for {team['dark_horse_owner']} ({dh_tag})")
+            marker_str = "  " + "  ".join(markers) if markers else ""
+
+            blocks.append(
+                f"#{team['rank']:<2} {team['name']:<20} {team['total']:5.1f} pts"
+                f"  {record}  {goals}  Owner: {team['owner']}{marker_str}"
+            )
+
+            subcats = []
+            if team["match_pts"] > 0:
+                subcats.append(f"Match {team['match_pts']:g}")
+            if team["goal_pts"] > 0:
+                subcats.append(f"Goals {team['goal_pts']:g}")
+            if team["qualify_pts"] > 0:
+                subcats.append(f"Qual {team['qualify_pts']:g}")
+            if team["knockout_pts"] > 0:
+                subcats.append(f"KO {team['knockout_pts']:g}")
+            if team["award_pts"] > 0:
+                subcats.append(f"Awards {team['award_pts']:g}")
+            if subcats:
+                blocks.append(f"    {' | '.join(subcats)}")
+
+    return "\n".join(blocks)
+
+
 def _daemon_down(exc: Exception) -> None:
     print(f"❌ Can't reach the WhatsApp daemon at {config.WHATSAPP_DAEMON_URL} ({exc}).")
     print("   Start it with launchd:")
@@ -325,6 +380,14 @@ def main() -> None:
                 sys.exit(1)
             value_rows = matched
         print(format_value_report(value_rows))
+        if warnings:
+            print("\n⚠️ " + "; ".join(warnings))
+        return
+
+    if "--teams" in args:
+        _, warnings, _ = build_leaderboard(games)
+        tier_rows = build_team_tier_report(games)
+        print(format_team_tier_report(tier_rows))
         if warnings:
             print("\n⚠️ " + "; ".join(warnings))
         return

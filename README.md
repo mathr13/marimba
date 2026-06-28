@@ -33,7 +33,7 @@ worldcup26.ir API
 | `teams.json` | Authoritative team registry — an id-keyed map (`{ "17": { "name_en": "Germany", … } }`) of all 48 World Cup teams |
 | `games_client.py` | Fetches match data from the API (or a local JSON file); sorts games — finished first, then chronological; matches games to teams by id |
 | `scoring.py` | Calculates points and builds the ranked leaderboard, per-user breakdowns, progressive timelines, and the value-for-money report |
-| `publish.py` | Formats the message and sends it via the daemon; supports `--dry-run`, `--test`, `--daemon-status`, `--user`, `--all`, `--value` |
+| `publish.py` | Formats the message and sends it via the daemon; supports `--dry-run`, `--test`, `--daemon-status`, `--user`, `--all`, `--value`, `--teams` |
 | `match_times.json` | Accurate IST kickoff times (joined to games by team id) overlaid on the API's `local_date` |
 | `build_match_times.py` | One-time/refresh script that regenerates `match_times.json` from ESPN's schedule API |
 | `TEAM_MAPPING.md` | Human-readable mapping report (id · FIFA code · name · tier · owner) for cross-verifying `config.py` |
@@ -136,11 +136,13 @@ python3 publish.py --user <name>    # print one contender's per-team points brea
 python3 publish.py --all            # print every contender's progressive points timeline (audit view)
 python3 publish.py --value          # print every contender's value-for-money report (pts per auction M)
 python3 publish.py --value <name>   # print just one contender's value-for-money report
+python3 publish.py --teams          # print tier-wise rankings of every team's performance
 ```
 
 The leaderboard shows **rank-movement indicators** versus the previous send (🟢▲ up, 🔴▼ down, ➡️ unchanged, 🆕 first appearance). Previous ranks are persisted in `rank_snapshot.json`, which is updated only on a real send (not on `--dry-run`).
 
 `--user`, `--all`, and `--value` print to stdout only — they never send to WhatsApp — and are meant for auditing how points were calculated (every match event with its running cumulative total).
+`--teams` is also stdout-only. It ranks every owned team inside its tier by fantasy points, with record, goals for/against, goal difference, owner, scoring breakdown, and dark-horse status.
 
 ### Value for Money report
 

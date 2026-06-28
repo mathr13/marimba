@@ -23,6 +23,11 @@ class TeamStats:
     knockout_pts: float = 0.0
     qualified: bool = False  # reached R32
     matches: int = 0
+    wins: int = 0
+    draws: int = 0
+    losses: int = 0
+    goals_for: int = 0
+    goals_against: int = 0
 
 
 # Maps game type → knockout bonus
@@ -100,14 +105,25 @@ def _build_stats(
         home_tier = _tier(home_id)
         away_tier = _tier(away_id)
 
+        stats[home_id].goals_for += home_goals
+        stats[home_id].goals_against += away_goals
+        stats[away_id].goals_for += away_goals
+        stats[away_id].goals_against += home_goals
+
         # Match points
         if home_goals > away_goals:
             stats[home_id].match_pts += config.WIN_PTS
+            stats[home_id].wins += 1
+            stats[away_id].losses += 1
         elif away_goals > home_goals:
             stats[away_id].match_pts += config.WIN_PTS
+            stats[away_id].wins += 1
+            stats[home_id].losses += 1
         else:
             stats[home_id].match_pts += config.DRAW_PTS
             stats[away_id].match_pts += config.DRAW_PTS
+            stats[home_id].draws += 1
+            stats[away_id].draws += 1
 
         # Goal points (shooter-safe count × tier multiplier)
         stats[home_id].goal_pts += home_goals * config.GOAL_MULTIPLIER[home_tier]
@@ -440,6 +456,80 @@ def build_value_report(games: list[dict], leaderboard_rows: "list[dict] | None" 
         result.sort(key=lambda r: rank_order.get(r["user"], 999))
     else:
         result.sort(key=lambda r: r["pts_per_m"], reverse=True)
+
+    return result
+
+
+def build_team_tier_report(games: list[dict]) -> list[dict]:
+    """Returns all owned teams grouped by tier and ranked by fantasy output."""
+    stats, team_award_pts, contender_dh_pts, _, _ = _build_stats(games)
+
+    owner_by_team = {
+        tid: contender
+        for contender, team_ids in config.CONTENDERS.items()
+        for tid in team_ids
+    }
+    dark_horse_by_team = {
+        dh_id: contender
+        for contender, dh_id in config.DARK_HORSE.items()
+    }
+
+    tier_groups: dict[int, list[dict]] = defaultdict(list)
+    for tid, owner in owner_by_team.items():
+        s = stats[tid]
+        tier = _tier(tid)
+        award_pts = team_award_pts.get(tid, 0.0)
+        base_total = round(s.match_pts + s.goal_pts + s.qualify_pts + s.knockout_pts + award_pts, 2)
+        dh_owner = dark_horse_by_team.get(tid)
+        dh_pts = contender_dh_pts.get(dh_owner, 0.0) if dh_owner else 0.0
+
+        tier_groups[tier].append({
+            "id": tid,
+            "name": display_name_for_id(tid) or tid,
+            "owner": owner,
+            "tier": tier,
+            "matches": s.matches,
+            "wins": s.wins,
+            "draws": s.draws,
+            "losses": s.losses,
+            "goals_for": s.goals_for,
+            "goals_against": s.goals_against,
+            "goal_diff": s.goals_for - s.goals_against,
+            "match_pts": round(s.match_pts, 2),
+            "goal_pts": round(s.goal_pts, 2),
+            "qualify_pts": round(s.qualify_pts, 2),
+            "knockout_pts": round(s.knockout_pts, 2),
+            "award_pts": round(award_pts, 2),
+            "total": base_total,
+            "is_dark_horse": dh_owner is not None,
+            "dark_horse_owner": dh_owner,
+            "dark_horse_pts": round(dh_pts, 2),
+        })
+
+    result = []
+    for tier in sorted(tier_groups):
+        teams = tier_groups[tier]
+        teams.sort(
+            key=lambda r: (
+                -r["total"],
+                -r["match_pts"],
+                -r["goal_diff"],
+                -r["goals_for"],
+                r["matches"],
+                r["name"],
+            )
+        )
+
+        rank = 1
+        for i, row in enumerate(teams):
+            if i > 0 and row["total"] < teams[i - 1]["total"]:
+                rank = i + 1
+            row["rank"] = rank
+
+        result.append({
+            "tier": tier,
+            "teams": teams,
+        })
 
     return result
 
