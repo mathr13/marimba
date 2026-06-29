@@ -132,6 +132,7 @@ python3 publish.py --dry-run        # print the message without sending
 python3 publish.py --test           # send a timestamped test message
 python3 publish.py --daemon-status  # check whether the WhatsApp session is ready
 python3 publish.py --find-groups    # list all WhatsApp groups and their JIDs
+python3 publish.py --calculate      # calculate and print the leaderboard only
 python3 publish.py --user <name>    # print one contender's per-team points breakdown
 python3 publish.py --all            # print every contender's progressive points timeline (audit view)
 python3 publish.py --value          # print every contender's value-for-money report (pts per auction M)
@@ -141,6 +142,8 @@ python3 publish.py --teams --dry-run # print the team rankings without sending
 ```
 
 The leaderboard shows **rank-movement indicators** versus the previous send (🟢▲ up, 🔴▼ down, ➡️ unchanged, 🆕 first appearance). Previous ranks are persisted in `rank_snapshot.json`, which is updated only on a real send (not on `--dry-run`).
+
+`--calculate` prints a simple ranked leaderboard from the current data source only. It does not publish to WhatsApp, load or save rank movement snapshots, or auto-commit data files.
 
 `--user`, `--all`, and `--value` print to stdout only — they never send to WhatsApp — and are meant for auditing how points were calculated (every match event with its running cumulative total).
 `--teams` publishes a WhatsApp report by default, or prints only with `--dry-run`. It ranks every owned team inside its tier by fantasy points, with record, goals for/against, goal difference, owner, scoring breakdown, and dark-horse status.

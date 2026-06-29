@@ -12,6 +12,7 @@ Usage:
     python3 publish.py --test                # send a timestamped "test" to verify the connection
     python3 publish.py --daemon-status       # check whether the daemon session is ready
     python3 publish.py --find-groups         # list all groups and their JIDs (for config setup)
+    python3 publish.py --calculate           # calculate and print leaderboard only
     python3 publish.py --user <name> [--dry-run] # show per-team breakdown for a specific user
     python3 publish.py --all                 # show ranked progressive timeline for all contenders
     python3 publish.py --teams [--dry-run]   # publish tier-wise team performance rankings
@@ -104,6 +105,19 @@ def format_leaderboard(
             lines.append(f"_Synced {synced_dt.strftime('%d %b %Y, %I:%M %p')}_")
         except ValueError:
             pass
+    if warnings:
+        lines.append("")
+        lines.append("⚠️ " + "; ".join(warnings))
+    return "\n".join(lines)
+
+
+def format_calculated_leaderboard(rows: list[dict], warnings: list[str]) -> str:
+    lines = ["🏆 FIFA Fantasy 2026 — Calculated Leaderboard 🏆", ""]
+    for row in rows:
+        m = row.get("matches", 0)
+        match_str = f"{m} {'match' if m == 1 else 'matches'}"
+        lines.append(f"#{row['rank']} *{row['user']}* — {row['points']:g} pts ({match_str})")
+
     if warnings:
         lines.append("")
         lines.append("⚠️ " + "; ".join(warnings))
@@ -359,6 +373,11 @@ def main() -> None:
         return
 
     games = fetch_games()
+
+    if "--calculate" in args:
+        rows, warnings, _ = build_leaderboard(games)
+        print(format_calculated_leaderboard(rows, warnings))
+        return
 
     if "--all" in args:
         rows, warnings, _ = build_leaderboard(games)
