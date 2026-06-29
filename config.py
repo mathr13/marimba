@@ -101,7 +101,7 @@ DRAW_PTS = 1
 GOAL_MULTIPLIER: dict[int, float] = {1: 1.0, 2: 1.5, 3: 2.0, 4: 3.0}
 
 # Group-stage qualification bonus (reaching knockouts / R32)
-QUALIFY_BONUS: dict[int, float] = {1: 2.0, 2: 2.0, 3: 2.0, 4: 5.0}
+QUALIFY_BONUS: dict[int, float] = {1: 2.0, 2: 2.0, 3: 2.0, 4: 2.0}
 
 # Knockout progression bonuses (cumulative)
 QF_BONUS = 2.0
