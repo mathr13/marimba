@@ -1452,13 +1452,13 @@
     },
     {
       "_id": "679c9c8a5749c4077500e073",
-      "away_score": "0",
-      "away_scorers": "null",
+      "away_score": "1",
+      "away_scorers": "{\"Astfan Avstakviv 90+2'\"}",
       "away_team_id": "5",
       "away_team_label": "Runner-up Group B",
       "away_team_name_en": "Canada",
       "away_team_name_fa": "کانادا",
-      "finished": "FALSE",
+      "finished": "TRUE",
       "group": "R32",
       "home_score": "0",
       "home_scorers": "null",
@@ -1471,7 +1471,7 @@
       "matchday": "4",
       "persian_date": "1405-04-07 12:00",
       "stadium_id": "16",
-      "time_elapsed": "live",
+      "time_elapsed": "finished",
       "type": "r32"
     },
     {
