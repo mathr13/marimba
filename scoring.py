@@ -49,6 +49,33 @@ def _tier(team_id: str) -> int:
     return config.TEAM_TIERS.get(team_id, 1)
 
 
+def _is_penalty_game(game: dict) -> bool:
+    """Check if a game went to penalty shootout."""
+    home_pen = game.get("home_penalty_score")
+    away_pen = game.get("away_penalty_score")
+    if home_pen is None or away_pen is None:
+        return False
+    try:
+        int(home_pen)
+        int(away_pen)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
+def _penalty_winner(game: dict) -> "str | None":
+    """Return 'home', 'away', or None based on penalty shootout scores."""
+    if not _is_penalty_game(game):
+        return None
+    home_pen = int(game.get("home_penalty_score", 0))
+    away_pen = int(game.get("away_penalty_score", 0))
+    if home_pen > away_pen:
+        return "home"
+    elif away_pen > home_pen:
+        return "away"
+    return None
+
+
 def _build_stats(
     games: list[dict],
 ) -> tuple[dict, dict, dict, list[str], "dict | None"]:
@@ -119,11 +146,22 @@ def _build_stats(
             stats[away_id].match_pts += config.WIN_PTS
             stats[away_id].wins += 1
             stats[home_id].losses += 1
+        # Regular time draw — check for penalty shootout
         else:
-            stats[home_id].match_pts += config.DRAW_PTS
-            stats[away_id].match_pts += config.DRAW_PTS
-            stats[home_id].draws += 1
-            stats[away_id].draws += 1
+            pen_winner = _penalty_winner(g)
+            if pen_winner == "home":
+                stats[home_id].match_pts += config.WIN_PTS
+                stats[home_id].wins += 1
+                stats[away_id].losses += 1
+            elif pen_winner == "away":
+                stats[away_id].match_pts += config.WIN_PTS
+                stats[away_id].wins += 1
+                stats[home_id].losses += 1
+            else:
+                stats[home_id].match_pts += config.DRAW_PTS
+                stats[away_id].match_pts += config.DRAW_PTS
+                stats[home_id].draws += 1
+                stats[away_id].draws += 1
 
         # Goal points (shooter-safe count × tier multiplier)
         stats[home_id].goal_pts += home_goals * config.GOAL_MULTIPLIER[home_tier]
@@ -150,7 +188,15 @@ def _build_stats(
                 elif away_goals > home_goals:
                     stats[away_id].knockout_pts += config.CHAMPION_BONUS
                     stats[home_id].knockout_pts += config.RUNNER_UP_BONUS
-                # Tied on goals (penalty final) → no champion bonus assigned (documented limitation)
+                else:
+                    # Penalty shootout final
+                    pen_winner = _penalty_winner(g)
+                    if pen_winner == "home":
+                        stats[home_id].knockout_pts += config.CHAMPION_BONUS
+                        stats[away_id].knockout_pts += config.RUNNER_UP_BONUS
+                    elif pen_winner == "away":
+                        stats[away_id].knockout_pts += config.CHAMPION_BONUS
+                        stats[home_id].knockout_pts += config.RUNNER_UP_BONUS
 
     # --- Awards: highest award per team → credited to team owner (keyed by id)
     team_award_pts: dict[str, float] = defaultdict(float)
@@ -335,7 +381,14 @@ def build_contender_timeline(games: list[dict], contender: str) -> dict:
             elif team_goals < opp_goals:
                 result, match_pts = "L", 0.0
             else:
-                result, match_pts = "D", float(config.DRAW_PTS)
+                # Regular time draw — check for penalty shootout
+                pen_winner = _penalty_winner(g)
+                if (pen_winner == "home" and tid == home_id) or (pen_winner == "away" and tid == away_id):
+                    result, match_pts = "W", float(config.WIN_PTS)
+                elif pen_winner is not None:
+                    result, match_pts = "L", 0.0
+                else:
+                    result, match_pts = "D", float(config.DRAW_PTS)
 
             goal_pts = round(team_goals * goal_mult, 2)
 
@@ -352,6 +405,13 @@ def build_contender_timeline(games: list[dict], contender: str) -> dict:
                     champion_pts = float(config.CHAMPION_BONUS)
                 elif team_goals < opp_goals:
                     runner_up_pts = float(config.RUNNER_UP_BONUS)
+                else:
+                    # Penalty shootout final
+                    pen_winner = _penalty_winner(g)
+                    if (pen_winner == "home" and tid == home_id) or (pen_winner == "away" and tid == away_id):
+                        champion_pts = float(config.CHAMPION_BONUS)
+                    elif pen_winner is not None:
+                        runner_up_pts = float(config.RUNNER_UP_BONUS)
 
             event_total = round(match_pts + goal_pts + qualify_pts + knockout_pts + champion_pts + runner_up_pts, 2)
             running_total = round(running_total + event_total, 2)
