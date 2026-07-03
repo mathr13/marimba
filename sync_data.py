@@ -20,12 +20,16 @@ when the Mac is usually asleep). This requires a NOPASSWD sudoers rule for
 /usr/bin/pmset (see RUNNING.md).
 
 Usage:
-    python3 sync_data.py
+    python3 sync_data.py [--force]
+
+Options:
+    --force    Force sync immediately, bypassing the time window cadence check.
 
 This script is meant to run as a launchd single-shot agent; see
 com.fifafantasy.datasync.plist for configuration. Manual invocation is also fine
 for testing or debugging.
 """
+import argparse
 import json
 import os
 import subprocess
@@ -85,8 +89,16 @@ def _read_last_attempt() -> "datetime | None":
         return None
 
 
-def _should_sync(now: datetime, last_attempt: "datetime | None") -> bool:
-    """Gate an actual fetch to the current window's cadence."""
+def _should_sync(now: datetime, last_attempt: "datetime | None", force: bool = False) -> bool:
+    """Gate an actual fetch to the current window's cadence.
+    
+    Args:
+        now: Current datetime
+        last_attempt: Last sync attempt time
+        force: If True, bypass time window check and force sync
+    """
+    if force:
+        return True
     if last_attempt is None:
         return True
     return (now - last_attempt) >= (_interval(now) - _DUE_SLACK)
@@ -129,10 +141,18 @@ def _schedule_next_wake(when: datetime) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Sync FIFA Fantasy data")
+    parser.add_argument("--force", action="store_true",
+                       help="Force sync immediately, bypassing time window checks")
+    args = parser.parse_args()
+    
     now = datetime.now()
     window = "hot" if _is_hot(now) else "cold"
 
-    if _should_sync(now, _read_last_attempt()):
+    if args.force:
+        print("🔥 Force mode enabled — bypassing time window check.")
+
+    if _should_sync(now, _read_last_attempt(), force=args.force):
         success = sync_once(retries=3, delay=5)
         if success:
             print(f"✅ Sync succeeded ({window} window).")
