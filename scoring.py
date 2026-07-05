@@ -167,12 +167,11 @@ def _build_stats(
         stats[home_id].goal_pts += home_goals * config.GOAL_MULTIPLIER[home_tier]
         stats[away_id].goal_pts += away_goals * config.GOAL_MULTIPLIER[away_tier]
 
-        # Qualification bonus (R32 appearance = cleared group stage)
-        if gtype == "r32":
+        # Qualification bonus: +2 points for each knockout stage reached
+        if gtype in ("r32", "r16", "qf", "sf", "final"):
             for tid, tier in ((home_id, home_tier), (away_id, away_tier)):
-                if not stats[tid].qualified:
-                    stats[tid].qualified = True
-                    stats[tid].qualify_pts += config.QUALIFY_BONUS[tier]
+                stats[tid].qualified = True
+                stats[tid].qualify_pts += config.QUALIFY_BONUS[tier]
 
         # Knockout progression bonuses
         if gtype in _STAGE_BONUS:
