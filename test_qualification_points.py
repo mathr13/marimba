@@ -12,7 +12,7 @@ from games_client import load_team_registry
 # Set up minimal config for testing
 if "Test" not in config.CONTENDERS:
     config.CONTENDERS["Test"] = ["17", "14", "9", "1"]
-    config.DARK_HORSE["Test"] = ""
+    config.DARK_HORSE["Test"] = "14"  # Paraguay as dark horse (Tier 2)
     config.AWARDS = {}
     config.AUCTION_PRICES["Test"] = {}
     config.BUDGETS["Test"] = 0
@@ -176,10 +176,84 @@ expected_brazil_knockout = config.QF_BONUS + config.FINAL_BONUS + config.RUNNER_
 assert brazil.knockout_pts == expected_brazil_knockout, \
     f"Expected Brazil to have {expected_brazil_knockout} knockout points, got {brazil.knockout_pts}"
 
-print("✅ All qualification points tests passed!")
+# Test dark horse points (should start from R16, not R32)
+print("\n=== Testing Dark Horse Points (start from R16) ===\n")
+
+# Get dark horse points for Test contender
+_, _, contender_dh_pts, _, _ = _build_stats(games)
+test_dh_pts = contender_dh_pts.get("Test", 0.0)
+
+print(f"Paraguay (dark horse) eliminated in R32: {paraguay.qualify_pts} qualify pts")
+print(f"  - Dark horse points: {test_dh_pts}")
+print(f"  - Expected: 0.0 (dark horse bonus only starts from R16)")
+print()
+assert test_dh_pts == 0.0, \
+    f"Expected 0.0 dark horse points for R32 elimination, got {test_dh_pts}"
+
+# Test with dark horse reaching R16
+# Change dark horse to Mexico for this test
+config.DARK_HORSE["Test"] = "1"
+games_r16 = [
+    # R32: Mexico vs Paraguay (Mexico wins)
+    {
+        "_id": "r32-game-2",
+        "finished": "TRUE",
+        "type": "r32",
+        "home_team_id": "1",
+        "home_team_name_en": "Mexico",
+        "away_team_id": "14",
+        "away_team_name_en": "Paraguay",
+        "home_score": "2",
+        "away_score": "1",
+        "home_scorers": "{}",
+        "away_scorers": "{}",
+        "local_date": "06/29/2026 16:30",
+    },
+    # R16: Mexico vs Brazil (Mexico eliminated)
+    {
+        "_id": "r16-game-2",
+        "finished": "TRUE",
+        "type": "r16",
+        "home_team_id": "1",
+        "home_team_name_en": "Mexico",
+        "away_team_id": "9",
+        "away_team_name_en": "Brazil",
+        "home_score": "1",
+        "away_score": "2",
+        "home_scorers": "{}",
+        "away_scorers": "{}",
+        "local_date": "07/03/2026 16:30",
+    },
+]
+
+stats_r16, _, _, _, _ = _build_stats(games_r16)
+mexico_r16 = stats_r16["1"]
+paraguay_r32 = stats_r16["14"]
+
+print(f"Paraguay eliminated in R32: {paraguay_r32.qualify_pts} qualify pts")
+print(f"  - Dark horse points: 0.0 (Paraguay is not the dark horse)")
+print(f"  - Expected: 0.0")
+assert paraguay_r32.qualify_pts == config.QUALIFY_BONUS[1], \
+    f"Expected Paraguay to have {config.QUALIFY_BONUS[1]} qualification points, got {paraguay_r32.qualify_pts}"
+
+print(f"\nMexico (dark horse) reached R16: {mexico_r16.qualify_pts} qualify pts")
+print(f"  - Dark horse points: {config.DARK_HORSE_BONUS['r16']}")
+print(f"  - Expected: {config.DARK_HORSE_BONUS['r16']}")
+assert mexico_r16.qualify_pts == 2 * config.QUALIFY_BONUS[1], \
+    f"Expected Mexico to have {2 * config.QUALIFY_BONUS[1]} qualification points, got {mexico_r16.qualify_pts}"
+
+# Verify dark horse points are awarded for reaching R16
+_, _, dh_pts_r16, _, _ = _build_stats(games_r16)
+mexico_dh = dh_pts_r16.get("Test", 0.0)
+print(f"\n✅ Dark horse bonus for reaching R16: {mexico_dh}")
+assert mexico_dh == config.DARK_HORSE_BONUS["r16"], \
+    f"Expected dark horse bonus {config.DARK_HORSE_BONUS['r16']}, got {mexico_dh}"
+
+print("\n✅ All qualification points tests passed!")
 print()
 print("Summary:")
 print(f"  Germany (champion): {germany.qualify_pts} qualify pts + {germany.knockout_pts} knockout pts")
 print(f"  Brazil (runner-up): {brazil.qualify_pts} qualify pts + {brazil.knockout_pts} knockout pts")
 print(f"  Mexico (R16): {mexico.qualify_pts} qualify pts")
 print(f"  Paraguay (R32): {paraguay.qualify_pts} qualify pts")
+print(f"  Dark horse starts from R16: ✅")

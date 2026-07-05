@@ -38,7 +38,6 @@ _STAGE_BONUS: dict[str, float] = {
 }
 
 _DH_STAGE_BONUS: dict[str, float] = {
-    "r32": config.DARK_HORSE_BONUS["r16"],
     "r16": config.DARK_HORSE_BONUS["r16"],
     "qf": config.DARK_HORSE_BONUS["qf"],
     "sf": config.DARK_HORSE_BONUS["sf"],
@@ -207,8 +206,9 @@ def _build_stats(
     contender_dh_pts: dict[str, float] = defaultdict(float)
     for contender, dh_id in config.DARK_HORSE.items():
         best = 0.0
+        dh_tier = _tier(dh_id)
         for stage, bonus in sorted(_DH_STAGE_BONUS.items(), key=lambda x: x[1], reverse=True):
-            if stage in ("r32", "r16") and stats[dh_id].qualified:
+            if stage == "r16" and stats[dh_id].qualify_pts >= 2 * config.QUALIFY_BONUS[dh_tier]:
                 best = max(best, config.DARK_HORSE_BONUS["r16"])
             elif stage == "qf" and stats[dh_id].knockout_pts >= config.QF_BONUS:
                 best = max(best, config.DARK_HORSE_BONUS["qf"])
