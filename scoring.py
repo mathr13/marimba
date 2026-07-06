@@ -392,7 +392,7 @@ def build_contender_timeline(games: list[dict], contender: str) -> dict:
             goal_pts = round(team_goals * goal_mult, 2)
 
             qualify_pts = 0.0
-            if gtype == "r32" and not team_qualified.get(tid, False):
+            if gtype in ("r32", "r16", "qf", "sf", "final"):
                 team_qualified[tid] = True
                 qualify_pts = config.QUALIFY_BONUS[tier]
 
