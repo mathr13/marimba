@@ -22,26 +22,13 @@ class TeamStats:
     qualify_pts: float = 0.0
     knockout_pts: float = 0.0
     qualified: bool = False  # reached R32
+    stages_reached: set = field(default_factory=set)  # e.g. {"r32", "r16", "qf"}
     matches: int = 0
     wins: int = 0
     draws: int = 0
     losses: int = 0
     goals_for: int = 0
     goals_against: int = 0
-
-
-# Maps game type → knockout bonus
-_STAGE_BONUS: dict[str, float] = {
-    "qf": config.QF_BONUS,
-    "sf": config.SF_BONUS,
-    "final": config.FINAL_BONUS,
-}
-
-_DH_STAGE_BONUS: dict[str, float] = {
-    "r16": config.DARK_HORSE_BONUS["r16"],
-    "qf": config.DARK_HORSE_BONUS["qf"],
-    "sf": config.DARK_HORSE_BONUS["sf"],
-}
 
 
 def _tier(team_id: str) -> int:
@@ -166,35 +153,37 @@ def _build_stats(
         stats[home_id].goal_pts += home_goals * config.GOAL_MULTIPLIER[home_tier]
         stats[away_id].goal_pts += away_goals * config.GOAL_MULTIPLIER[away_tier]
 
-        # Qualification bonus: +2 points for each knockout stage reached
+        # Track which knockout stages each team has played (used by dark horse
+        # and stage-label logic below).
+        if gtype in ("r32", "r16", "qf", "sf", "final"):
+            stats[home_id].stages_reached.add(gtype)
+            stats[away_id].stages_reached.add(gtype)
+
+        # Qualification bonus: +2 for reaching EACH knockout stage —
+        # R32 (from groups), R16 (from R32), QF (from R16), SF (from QF), F (from SF).
+        # A team only ever plays one match per stage, so this fires once per stage naturally.
         if gtype in ("r32", "r16", "qf", "sf", "final"):
             for tid, tier in ((home_id, home_tier), (away_id, away_tier)):
                 stats[tid].qualified = True
                 stats[tid].qualify_pts += config.QUALIFY_BONUS[tier]
 
-        # Knockout progression bonuses
-        if gtype in _STAGE_BONUS:
-            bonus = _STAGE_BONUS[gtype]
-            stats[home_id].knockout_pts += bonus
-            stats[away_id].knockout_pts += bonus
-
-            # Champion / Runner-up (only for final)
-            if gtype == "final":
-                if home_goals > away_goals:
+        # Champion / Runner-up bonus (final only, on top of the +2 qualify-to-final bonus above)
+        if gtype == "final":
+            if home_goals > away_goals:
+                stats[home_id].knockout_pts += config.CHAMPION_BONUS
+                stats[away_id].knockout_pts += config.RUNNER_UP_BONUS
+            elif away_goals > home_goals:
+                stats[away_id].knockout_pts += config.CHAMPION_BONUS
+                stats[home_id].knockout_pts += config.RUNNER_UP_BONUS
+            else:
+                # Penalty shootout final
+                pen_winner = _penalty_winner(g)
+                if pen_winner == "home":
                     stats[home_id].knockout_pts += config.CHAMPION_BONUS
                     stats[away_id].knockout_pts += config.RUNNER_UP_BONUS
-                elif away_goals > home_goals:
+                elif pen_winner == "away":
                     stats[away_id].knockout_pts += config.CHAMPION_BONUS
                     stats[home_id].knockout_pts += config.RUNNER_UP_BONUS
-                else:
-                    # Penalty shootout final
-                    pen_winner = _penalty_winner(g)
-                    if pen_winner == "home":
-                        stats[home_id].knockout_pts += config.CHAMPION_BONUS
-                        stats[away_id].knockout_pts += config.RUNNER_UP_BONUS
-                    elif pen_winner == "away":
-                        stats[away_id].knockout_pts += config.CHAMPION_BONUS
-                        stats[home_id].knockout_pts += config.RUNNER_UP_BONUS
 
     # --- Awards: highest award per team → credited to team owner (keyed by id)
     team_award_pts: dict[str, float] = defaultdict(float)
@@ -205,15 +194,15 @@ def _build_stats(
     # --- Dark Horse (keyed by team id)
     contender_dh_pts: dict[str, float] = defaultdict(float)
     for contender, dh_id in config.DARK_HORSE.items():
-        best = 0.0
-        dh_tier = _tier(dh_id)
-        for stage, bonus in sorted(_DH_STAGE_BONUS.items(), key=lambda x: x[1], reverse=True):
-            if stage == "r16" and stats[dh_id].qualify_pts >= 2 * config.QUALIFY_BONUS[dh_tier]:
-                best = max(best, config.DARK_HORSE_BONUS["r16"])
-            elif stage == "qf" and stats[dh_id].knockout_pts >= config.QF_BONUS:
-                best = max(best, config.DARK_HORSE_BONUS["qf"])
-            elif stage == "sf" and stats[dh_id].knockout_pts >= config.QF_BONUS + config.SF_BONUS:
-                best = max(best, config.DARK_HORSE_BONUS["sf"])
+        reached = stats[dh_id].stages_reached
+        if "sf" in reached:
+            best = config.DARK_HORSE_BONUS["sf"]
+        elif "qf" in reached:
+            best = config.DARK_HORSE_BONUS["qf"]
+        elif "r16" in reached:
+            best = config.DARK_HORSE_BONUS["r16"]
+        else:
+            best = 0.0
         contender_dh_pts[contender] = best
 
     return stats, team_award_pts, contender_dh_pts, warnings, last_match
@@ -396,9 +385,7 @@ def build_contender_timeline(games: list[dict], contender: str) -> dict:
                 team_qualified[tid] = True
                 qualify_pts = config.QUALIFY_BONUS[tier]
 
-            knockout_pts = champion_pts = runner_up_pts = 0.0
-            if gtype in _STAGE_BONUS:
-                knockout_pts = _STAGE_BONUS[gtype]
+            champion_pts = runner_up_pts = 0.0
             if gtype == "final":
                 if team_goals > opp_goals:
                     champion_pts = float(config.CHAMPION_BONUS)
@@ -412,7 +399,7 @@ def build_contender_timeline(games: list[dict], contender: str) -> dict:
                     elif pen_winner is not None:
                         runner_up_pts = float(config.RUNNER_UP_BONUS)
 
-            event_total = round(match_pts + goal_pts + qualify_pts + knockout_pts + champion_pts + runner_up_pts, 2)
+            event_total = round(match_pts + goal_pts + qualify_pts + champion_pts + runner_up_pts, 2)
             running_total = round(running_total + event_total, 2)
 
             events.append({
@@ -427,7 +414,6 @@ def build_contender_timeline(games: list[dict], contender: str) -> dict:
                 "match_pts": match_pts,
                 "goal_pts": goal_pts,
                 "qualify_pts": qualify_pts,
-                "knockout_pts": knockout_pts,
                 "champion_pts": champion_pts,
                 "runner_up_pts": runner_up_pts,
                 "event_total": event_total,
@@ -437,11 +423,11 @@ def build_contender_timeline(games: list[dict], contender: str) -> dict:
     dh_info = None
     if dh_pts > 0 and dh_id:
         dh_s = stats[dh_id]
-        if dh_s.knockout_pts >= config.QF_BONUS + config.SF_BONUS:
+        if "sf" in dh_s.stages_reached:
             dh_stage = "SF"
-        elif dh_s.knockout_pts >= config.QF_BONUS:
+        elif "qf" in dh_s.stages_reached:
             dh_stage = "QF"
-        elif dh_s.qualified:
+        elif "r16" in dh_s.stages_reached:
             dh_stage = "R16"
         else:
             dh_stage = "R32"

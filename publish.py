@@ -181,8 +181,6 @@ def format_contender_timeline(timeline: dict) -> str:
             pts_parts.append(f"Goals {event['goals']}×{event['goal_mult']} +{event['goal_pts']:g}")
         if event["qualify_pts"] > 0:
             pts_parts.append(f"Qual +{event['qualify_pts']:g}")
-        if event["knockout_pts"] > 0:
-            pts_parts.append(f"KO +{event['knockout_pts']:g}")
         if event["champion_pts"] > 0:
             pts_parts.append(f"Champ +{event['champion_pts']:g}")
         if event["runner_up_pts"] > 0:
