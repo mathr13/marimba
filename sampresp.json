@@ -2444,7 +2444,7 @@
       "away_penalty_misses": "null",
       "away_penalty_score": "null",
       "away_penalty_scorers": "null",
-      "away_score": "null",
+      "away_score": "0",
       "away_scorers": "null",
       "away_team_id": "37",
       "away_team_label": "Winner Match 100",
@@ -2455,7 +2455,7 @@
       "home_penalty_misses": "null",
       "home_penalty_score": "null",
       "home_penalty_scorers": "null",
-      "home_score": "null",
+      "home_score": "0",
       "home_scorers": "null",
       "home_team_id": "45",
       "home_team_label": "Winner Match 99",
@@ -2467,7 +2467,7 @@
       "matchday": "7",
       "persian_date": "1405-04-24 15:00",
       "stadium_id": "7",
-      "time_elapsed": "notstarted",
+      "time_elapsed": "live",
       "type": "sf"
     },
     {
