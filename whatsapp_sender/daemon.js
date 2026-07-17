@@ -169,16 +169,26 @@ const server = http.createServer((req, res) => {
                 return sendJson(res, 400, { ok: false, error: 'groupId and message are required' });
             }
             try {
-                const chat = await client.getChatById(groupId);
-                await chat.sendMessage(message);
-                console.log(`[whatsapp] Message sent to "${chat.name}".`);
-                return sendJson(res, 200, { ok: true, chat: chat.name });
+                // client.sendMessage() looks up the chat with getAsModel:false
+                // internally. getChatById() (getAsModel:true → getChatModel) currently
+                // throws a minified WhatsApp error ("r") on recent Web builds.
+                await client.sendMessage(groupId, message);
+                let chatName = groupId;
+                try {
+                    chatName = await client.pupPage.evaluate(async chatId => {
+                        const chat = await window.WWebJS.getChat(chatId, { getAsModel: false });
+                        return chat ? (chat.formattedTitle || chat.name || chatId) : chatId;
+                    }, groupId);
+                } catch (_) { /* name is cosmetic — send already succeeded */ }
+                console.log(`[whatsapp] Message sent to "${chatName}".`);
+                return sendJson(res, 200, { ok: true, chat: chatName });
             } catch (err) {
-                console.error('[whatsapp] Send error:', err.message);
+                const errMsg = err && err.message ? String(err.message) : String(err);
+                console.error('[whatsapp] Send error:', errMsg);
                 // Detached frame / destroyed context = the browser page reloaded
                 // under us. Session is broken. Return 503 so publish.py retries,
                 // then exit cleanly for launchd to restart with a fresh session.
-                if (/detached Frame|Execution context was destroyed|Target closed/i.test(err.message)) {
+                if (/detached Frame|Execution context was destroyed|Target closed/i.test(errMsg)) {
                     ready = false;
                     sendJson(res, 503, { ok: false, error: 'session broken — restarting' });
                     setTimeout(() => process.exit(1), 200);

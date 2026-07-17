@@ -78,9 +78,16 @@ client.on('ready', async () => {
     clearTimeout(readyTimer);
     console.log('[whatsapp] Ready. Looking up group by ID…');
     try {
-        const chat = await client.getChatById(groupId);
-        await chat.sendMessage(message);
-        console.log(`[whatsapp] Message sent to "${chat.name}".`);
+        // Use client.sendMessage — getChatById/getChatModel throws on recent WA Web.
+        await client.sendMessage(groupId, message);
+        let chatName = groupId;
+        try {
+            chatName = await client.pupPage.evaluate(async chatId => {
+                const chat = await window.WWebJS.getChat(chatId, { getAsModel: false });
+                return chat ? (chat.formattedTitle || chat.name || chatId) : chatId;
+            }, groupId);
+        } catch (_) {}
+        console.log(`[whatsapp] Message sent to "${chatName}".`);
         // Let Chrome flush the outbound message to WhatsApp's servers.
         await new Promise(r => setTimeout(r, 4000));
         await client.destroy();
